@@ -1,26 +1,44 @@
+boolean connected = false;    // set to false when Arduino isn't connected
+
 import processing.serial.*;
 Serial arduino;
 
 import controlP5.*;
 ControlP5 cp5;
-Knob knobServoAlpha;
-Knob knobServoTheta1;
-Knob knobServoTheta2;
-Slider sliderServoAlpha;
+Knob knobServo1;
+Knob knobServo2;
+Knob knobServo3;
+Slider sliderArmX;
+Slider sliderArmY;
+Slider sliderArmZ;
 
-float originX = 0;
-float originY = 0.25;
-float originZ = 0;
+boolean servoMode = false;
+boolean screenXYZ = true;
+
+float screenXsize = 149;
+float screenYsize = 198;
+float screenTilt = PI/16;  // radians from vertical
+float screenDistance = 175.0;  // mm from shoulder joint to middle of screen
+float screenCentreX = 30.0;
+float screenCentreY = -30.0;
+float screenCentreZ = -185.0;
+
+float originX;
+float originY;
+float originZ;
 
 float originAxisSize = 350;
 float originPlaneSize = 250;
 
-float x;
-float y;
-float z;
+float armX;
+float armY;
+float armZ;
+float screenX;
+float screenY;
+float screenZ;
 
-float upperArmLength = 135;
-float lowerArmLength = 105;
+float upperArmLength = 114;
+float lowerArmLength = 128;
 
  float alpha;
  float A; 
@@ -30,17 +48,11 @@ float lowerArmLength = 105;
  float q2;
  float theta1;
  float theta2;
- float alphaServo;
- float theta1Servo;
- float theta2Servo;
- int alphauSec;
- int theta1uSec;
- int theta2uSec;
 
- int servoCenter = 1500;  // uSec
- float servoRangeRad = 160 * (PI/180);  // degrees
- int servoRangeuSec = 1200;  // uSec 
-
+ Servo servo1 = new Servo(PI/2, 1200, 1500, radians(-45), radians(45));
+ Servo servo2 = new Servo(PI/2, 1200, 1460, radians(-45), radians(45));
+ Servo servo3 = new Servo(PI/2, 1200, 1500, radians(-45), radians(45));
+ 
  int sketchTime1 = 4000;
  int sketchTime2 = 2000;
  int sketchTime3 = 2000;
@@ -51,18 +63,6 @@ float lowerArmLength = 105;
  float mouthDiam = 35.0;
  boolean sketching;
 
- float fromX;
- float fromY;
- float fromZ;
- float toX;
- float toY;
- float toZ;
- int moveStart;
- int moveDuration;
- boolean moving;
-
- boolean manual = false;
-
  ArrayList<PVector> sketchPoints;
 
 //=========================================================================================================================== 
@@ -70,173 +70,316 @@ float lowerArmLength = 105;
     size(800, 800, P3D); 
     lights();   
     smooth(4);
-    arduino = new Serial(this, "COM3", 57600);
+    if (connected) {
+      arduino = new Serial(this, "COM3", 57600);
+    }
     sketchPoints = new ArrayList<PVector>();
     
-    cp5 = new ControlP5(this);
-    // X slider
-    cp5.addSlider("x")
-     .setPosition(20,20)
-     .setSize(200, 10)
-     .setRange(-(upperArmLength+lowerArmLength),upperArmLength+lowerArmLength)
-     .setValue(0.0);
-     ;
-    
-    // Y slider
-    cp5.addSlider("y")
-     .setPosition(20,40)
-     .setSize(200, 10)
-     .setRange(-(upperArmLength+lowerArmLength),upperArmLength+lowerArmLength)
-     .setValue(0.0)
-     ;
-
-    // Z slider     
-     cp5.addSlider("z")
-     .setPosition(20,60)
-     .setSize(200, 10)
-     .setRange(-(upperArmLength+lowerArmLength),upperArmLength+lowerArmLength)
-     .setValue(-200.0)
-     ; 
-  
-    // origin X slider
-    cp5.addSlider("originX")
-     .setPosition(width-240,20)
-     .setSize(200, 10)
-     .setRange(-PI/2,PI/2)
-     .setValue(-0.56)
-     ;
-  
-    // origin Y slider
-    cp5.addSlider("originY")
-     .setPosition(width-240,40)
-     .setSize(200, 10)
-     .setRange(-PI/2,PI/2)
-     .setValue(-0.78)
-     ; 
-  
-    // origin Z slider
-    cp5.addSlider("originZ")
-     .setPosition(width-240,60)
-     .setSize(200, 10)
-     .setRange(-PI/2,PI/2)
-     ;
-
-    float servoRangeMin = servoCenter - (servoRangeuSec / 2);
-    float servoRangeMax = servoCenter + (servoRangeuSec / 2);
-    float knobAngleRange = servoRangeRad;
-    float knobStartAngle = PI/2 + ((TWO_PI - servoRangeRad)/2);
-    
-//    // servo 'alpha' slider
-//    sliderServoAlpha = cp5.addSlider("alphausec")
-//     .setPosition(20,height-40)
-//     .setSize(width-40, 10)
-//     .setRange(servoRangeMin,servoRangeMax)
-//     .setValue(servoCenter)
-//     ;
-     
-    // create a toggle
-    cp5.addToggle("manual")
-       .setPosition(20,250)
-       .setSize(50,20)
-       ;
-     
-    // servo 'alpha' knob
-    knobServoAlpha = cp5.addKnob("alphausec")
-               .setRange(servoRangeMin,servoRangeMax)
-               .setValue(servoCenter)
-               .setPosition(20,300)
-               .setRadius(25)
-               .setDragDirection(Knob.HORIZONTAL)
-               .setViewStyle(1)
-               .setAngleRange(knobAngleRange)
-               .setStartAngle(knobStartAngle)
-               ;
-     
-     // servo 'theta1' knob
-     knobServoTheta1 = cp5.addKnob("theta1usec")
-               .setRange(servoRangeMin,servoRangeMax)
-               .setValue(servoCenter)
-               .setPosition(20,370)
-               .setRadius(25)
-               .setDragDirection(Knob.HORIZONTAL)
-               .setViewStyle(1)
-               .setAngleRange(knobAngleRange)
-               .setStartAngle(knobStartAngle)
-               ;
-               
-     // servo 'theta2' knob
-     knobServoTheta2 = cp5.addKnob("theta2usec")
-               .setRange(servoRangeMin,servoRangeMax)
-               .setValue(servoCenter)
-               .setPosition(20,440)
-               .setRadius(25)
-               .setDragDirection(Knob.HORIZONTAL)
-               .setViewStyle(1)
-               .setAngleRange(knobAngleRange)
-               .setStartAngle(knobStartAngle)
-               ;
-
+    addUI();
  }
 
 //===========================================================================================================================  
  void draw() {
   background(0);
   
-  if (sketching) {
-    sketch();
-  }
-  if (moving) {
-    move(); 
+  if (!servoMode) {           // get x, y, z coordinates
+    if (sketching) {             // if in drawing mode               
+      sketch();                    // get coords from drawing
+    }                            // if not sketching, get coords from x, y, z sliders
+    if (screenXYZ) {           // if inputting screen coords, 
+      calculateXYZ();            // calculate arm coords
+    }
+    calculateJointAngles();
+    
+  } else {                    // if manually adjusting servos
+    readJointAngles();           // from UI controls
   }
   
+  calculateServoAngles();
+  if (connected) sendData();
+
+  drawModel();
+  printDebug();
+  
+
+ }
+
+//===========================================================================================================================
+void calculateXYZ() {
+  // calculate the robot arm x,y,z coords from the iPad x,y,z coords (allowing for tilt)
+  // refer to arm-screen_coords_transform.jpg 
+  
+  armX = screenX + screenCentreX;
+  armY = ((screenY - (screenZ / tan(screenTilt))) * cos(screenTilt)) + (screenZ / tan(screenTilt)) + screenCentreY;
+  armZ = screenCentreZ - ((screenY - (screenZ / tan(screenTilt))) * sin(screenTilt));
+  
+  sliderArmX.setValue(armX);
+  sliderArmY.setValue(armY);
+  sliderArmZ.setValue(armZ);
+  
+  //println(armX + "  " + armY + "  " + armZ);
+}
+
+//===========================================================================================================================
+void calculateJointAngles() {
+  /*  refer to angles.jpg
+  
+    x - positive to the right of the iPad screen
+    y - positive up the iPad screen
+    z - away from the iPad screen
+    
+    Shoulder Joint Rotation (alpha)
+    when looking at the shoulder from the right
+    - positive clockwise
+    - zero degrees is horizontal
+      
+    Shoulder Joint Extension (theta1)
+    when looking at the shoulder from the top
+    - positive clockwise
+    - zero degrees is pointing directly at the screen
+    
+    Elbow Joint Extension (theta2)
+    when looking at the elbow from the top
+    - positive clockwise
+    - 180 degrees is lower arm in line with upper arm
+    
+  */
+  A = sqrt(sq(armY) + sq(armZ)); 
+  B = constrain(sqrt(sq(A) + sq(armX)), 0, upperArmLength + lowerArmLength) ;
+  q1 = atan2(-armX, -A);
+  q2 = acos((sq(upperArmLength) - sq(lowerArmLength) + sq(B))/(2*upperArmLength*B));
+
+  alpha = atan2(-armY, -armZ);
+  //theta1 = PI - (q1 + q2);
+  theta1 = -PI + (q1 + q2);
+  theta2 = -PI + acos((sq(upperArmLength) + sq(lowerArmLength) - sq(B))/(2*upperArmLength*lowerArmLength));
+  
+}
+
+//===========================================================================================================================
+void calculateServoAngles() {
+  // the angle the servo needs to go to, to make the joint angle required
+  
+  // alpha ----
+  servo1.setAngle(alpha);
+  knobServo1.setValue(alpha);
+  
+  // theta1 ----
+  if (theta1 < -PI) {
+    theta1 = -(TWO_PI + theta1);
+  } else {
+    theta1 = -theta1;
+  }  
+  servo2.setAngle(theta1 + PI/4);      // adding 45 degrees so the servo central point is pointing at 45deg out of the joint
+  knobServo2.setValue(theta1 + PI/4);
+  
+  // theta2 ----
+  servo3.setAngle(theta2 + PI/4);      // adding 45 degrees so the servo central point is pointing at 45deg out of the joint
+  knobServo3.setValue(theta2 + PI/4);  
+}
+
+//===========================================================================================================================
+void readJointAngles() {
+  alpha = knobServo1.getValue();
+  theta1 = -knobServo2.getValue() + PI/4;  // servo is positioned so that servo centre points upper arm at 45deg;
+  theta2 = knobServo3.getValue() - PI/4;  // servo is positioned so that servo centre points lower arm at 45deg
+
+}
+
+//=========================================================================================================================== 
+void keyPressed() {
+ if (key == ' ') {
+ 
+   sketchStart = millis();
+   sketching = !sketching; 
+   //sketchPoints = new ArrayList<PVector>();
+   sketchPoints.clear();
+   
+ } else if (key == 'x' || key == 'X') {
+   sketchPoints.clear();
+ }
+  
+}
+
+//=========================================================================================================================== 
+void sketch() {
+  screenZ = 0.0;
+  int faceCenterX = 30;
+  int faceCenterY = 0;
+  
+  float sketchAngle;
+  
+  if (millis() < sketchStart + sketchTime1) {
+    sketchAngle = (millis() - sketchStart) / float(sketchTime1) * TWO_PI;
+    screenX = faceDiam * sin(sketchAngle) + faceCenterX;
+    screenY = faceDiam * cos(sketchAngle) + faceCenterY;
+    
+    PVector thispoint = new PVector(screenX, screenY, screenZ);
+    sketchPoints.add(thispoint);
+
+  } else if (millis() < sketchStart + sketchTime1 + sketchTime2) {
+    sketchAngle = (millis() - (sketchStart + sketchTime1)) / float(sketchTime2) * TWO_PI;
+    screenX = eyeDiam * sin(sketchAngle) - 20 + faceCenterX;
+    screenY = eyeDiam * cos(sketchAngle) + 20 + faceCenterY;
+    
+    PVector thispoint = new PVector(screenX, screenY, screenZ);
+    sketchPoints.add(thispoint);    
+
+  } else if (millis() < sketchStart + sketchTime1 + sketchTime2 + sketchTime3) {
+    sketchAngle = (millis() - (sketchStart + sketchTime1 + sketchTime2)) / float(sketchTime3) * TWO_PI;
+    screenX = eyeDiam * sin(sketchAngle) + 20 + faceCenterX;
+    screenY = eyeDiam * cos(sketchAngle) + 20 + faceCenterY;
+    
+    PVector thispoint = new PVector(screenX, screenY, screenZ);
+    sketchPoints.add(thispoint);      
+
+  } else if (millis() < sketchStart + sketchTime1 + sketchTime2 + sketchTime3 + sketchTime4) {
+    sketchAngle = TWO_PI/3 + (millis() - (sketchStart + sketchTime1 + sketchTime2 + sketchTime3)) / float(sketchTime4) * TWO_PI/3;
+    screenX = mouthDiam * sin(sketchAngle) + faceCenterX;
+    screenY = mouthDiam * cos(sketchAngle) + faceCenterY;
+    
+    PVector thispoint = new PVector(screenX, screenY, screenZ);
+    sketchPoints.add(thispoint);      
+    
+  } else {
+    
+    sketchStart = millis();
+    sketchPoints.clear();
+    
+  }
+  
+}
+
+//=========================================================================================================================== 
+void drawSketch() {
+    for (int i = sketchPoints.size()-1; i >= 0; i--) {
+    PVector thisPoint = sketchPoints.get(i);
+    float thisX = thisPoint.x;
+    float thisY = thisPoint.y;
+    float thisZ = thisPoint.z;
+    
+    pushMatrix();
+    translate(thisX, -thisY, thisZ);
+    
+    beginShape();
+         fill(255);
+         vertex(-2, -2, 0);
+         vertex(2, -2, 0);
+         vertex(2, 2, 0);
+         vertex(-2, 2, 0);
+    endShape();
+    popMatrix();
+  }
+}
+
+//===========================================================================================================================
+void sendData() {
+  
+  arduino.write(65);  // 'A'
+  arduino.write(servo1.microSeconds);
+  arduino.write(servo1.microSeconds >> 8);
+  arduino.write(servo2.microSeconds);
+  arduino.write(servo2.microSeconds >> 8); 
+  arduino.write(servo3.microSeconds);
+  arduino.write(servo3.microSeconds >> 8);  
+
+}
+
+//===========================================================================================================================
+void drawModel() {
   stroke(255, 100);
   noFill();
   pushMatrix();
-  translate(width/2, height/2, 0);
-  
-  rotateX(originX);    
-  rotateY(originY);
-  rotateZ(originZ);
-
-  //box(400);
-  drawAxes();
-  drawOriginPlanes();
-  drawTarget();
-  drawArm();
-  drawSketch();
+    translate(width/2, height/2, 0);
+    
+    rotateX(originX);    
+    rotateY(originY);
+    rotateZ(originZ);
+    
+    drawAxes();
+    drawArm();
+    drawScreen();
+    drawSketch();
     
   popMatrix();
-
-  drawServos();
-  drawNotes();
-  printDebug();
   
-  sendData();
- }
+  // backgrounds to the servo knobs
+  fill(23, 100, 205, 65);
+  noStroke();
+  rect(9, 440, 75, 113);
+  rect(9, 560, 75, 113);
+  rect(9, 680, 75, 113);
+  
+  // text under the servo knobs
+  fill(150);
+  text(int(degrees(servo1.angle)) + " deg", 17, 528);
+  text(servo1.microSeconds + " uSec", 17, 543);
+  text(int(degrees(servo2.angle)) + " deg", 17, 648);
+  text(servo2.microSeconds + " uSec", 17, 663);
+  text(int(degrees(servo3.angle)) + " deg", 17, 768);
+  text(servo3.microSeconds + " uSec", 17, 783);
+  
+  // instructions in lower right corner
+  fill(200);
+  text("press <SPACE> to start sketch", width - 200, height - 30);
+  text("press <X> to clear sketch", width - 200, height - 15);
+  
+}
 
+//===========================================================================================================================  
+void drawAxes() {
+  
+  // draw axes --------------------
+  beginShape(LINES);
+  strokeWeight(1);
+  // X axis
+  stroke(255, 0, 0);
+  vertex(-originAxisSize, 0, 0);
+  vertex(originAxisSize, 0, 0);
+  // Y axis
+  stroke(0, 255, 0);
+  vertex(0, -originAxisSize, 0);
+  vertex(0, originAxisSize, 0);
+  // Z axis
+  stroke(0, 0, 255);
+  vertex(0, 0, -originAxisSize);
+  vertex(0, 0, originAxisSize);
+  endShape();
+
+//  // draw origin planes --------------------
+//  stroke(255, 40);
+//  strokeWeight(1);
+//  beginShape(QUADS);
+//  // YZ plane
+//  vertex(0, originPlaneSize, originPlaneSize);
+//  vertex(0, -originPlaneSize, originPlaneSize);
+//  vertex(0, -originPlaneSize, -originPlaneSize);
+//  vertex(0, originPlaneSize, -originPlaneSize);
+//  // XZ plane
+//  vertex(originPlaneSize, 0, originPlaneSize);
+//  vertex(-originPlaneSize, 0, originPlaneSize);
+//  vertex(-originPlaneSize, 0, -originPlaneSize);
+//  vertex(originPlaneSize, 0, -originPlaneSize);
+//  endShape();
+//  // XY plane
+//  vertex(originPlaneSize, originPlaneSize, 0);
+//  vertex(-originPlaneSize, originPlaneSize, 0);
+//  vertex(-originPlaneSize, -originPlaneSize, 0);
+//  vertex(originPlaneSize, -originPlaneSize, 0);
+//  endShape();  
+}
+ 
 //=========================================================================================================================== 
  void drawArm() {
-   if (!manual) {
-     alpha = atan2(-y, -z);
-     A = sqrt(sq(y) + sq(z)); 
-     //if (z<0) A = -A;
-     
-     B = constrain(sqrt(sq(A) + sq(x)), 0, upperArmLength + lowerArmLength) ;
-     //q1 = (PI/2)- atan2(A, x);
-     q1 = atan2(-x, -A);
-     
-     q2 = acos((sq(upperArmLength) - sq(lowerArmLength) + sq(B))/(2*upperArmLength*B));
-     theta1 = PI - (q1 + q2);
-     theta2 = -PI + acos((sq(upperArmLength) + sq(lowerArmLength) - sq(B))/(2*upperArmLength*lowerArmLength));
-   } else {
-       alpha = -servoAngle(int(knobServoAlpha.getValue()));
-       theta1 = -servoAngle(int(knobServoTheta1.getValue()));
-       theta2 = -servoAngle(int(knobServoTheta2.getValue())) - PI/2;
-//     alpha = -knobServoAlpha.getValue()-1475)/925.0*1.309;  // 1475 midpoint, 1850uS,150deg(2.618rad) range
-//     theta1 = -(knobServoTheta1.getValue()-1475)/925.0*1.309;
-//     theta2 = -(knobServoTheta2.getValue()-1475)/925.0*1.309 - PI/2;
-   }
- 
+   // draw x,y,z target -----------
+   fill(23, 100, 205);
+   noStroke();
+   pushMatrix();
+     translate(armX, -armY, armZ);
+     sphere(5);
+   popMatrix();
+  
+   // draw arm -----------
    pushMatrix();
      fill(0, 0, 255);
      noStroke();
@@ -310,289 +453,196 @@ float lowerArmLength = 105;
  }
 
 //=========================================================================================================================== 
- void drawTarget() {
-  fill(23, 100, 205);
-  noStroke();
-  pushMatrix();
-    translate(x, -y, z);
-    sphere(5);
-  popMatrix();
- }
-
-//===========================================================================================================================  
- void drawAxes() {
-  beginShape(LINES);
+void drawScreen() {
+  stroke(255, 100);
+  fill(255, 30);
   strokeWeight(1);
-  // X axis
-  stroke(255, 0, 0);
-  vertex(-originAxisSize, 0, 0);
-  vertex(originAxisSize, 0, 0);
-  // Y axis
-  stroke(0, 255, 0);
-  vertex(0, -originAxisSize, 0);
-  vertex(0, originAxisSize, 0);
-  // Z axis
-  stroke(0, 0, 255);
-  vertex(0, 0, -originAxisSize);
-  vertex(0, 0, originAxisSize);
-  endShape();
- }
-
-//===========================================================================================================================  
- void drawOriginPlanes() {
-  stroke(255, 40);
-  strokeWeight(1);
-  beginShape(QUADS);
-  // YZ plane
-  vertex(0, originPlaneSize, originPlaneSize);
-  vertex(0, -originPlaneSize, originPlaneSize);
-  vertex(0, -originPlaneSize, -originPlaneSize);
-  vertex(0, originPlaneSize, -originPlaneSize);
-  // XZ plane
-  vertex(originPlaneSize, 0, originPlaneSize);
-  vertex(-originPlaneSize, 0, originPlaneSize);
-  vertex(-originPlaneSize, 0, -originPlaneSize);
-  vertex(originPlaneSize, 0, -originPlaneSize);
-  endShape();
-  // XY plane
-  vertex(originPlaneSize, originPlaneSize, 0);
-  vertex(-originPlaneSize, originPlaneSize, 0);
-  vertex(-originPlaneSize, -originPlaneSize, 0);
-  vertex(originPlaneSize, -originPlaneSize, 0);
-  endShape();  
- }
-
-//===========================================================================================================================  
- void drawArmSimple() {
-  beginShape(LINES);
-  // X axis
-  stroke(255);
-  strokeWeight(5);
-  vertex(0, 0, 0);
-  vertex(x, y, z);
-  endShape(); 
- }
-
-//=========================================================================================================================== 
-void drawServos() {
-  
-  // alpha ----
-  alphaServo = alpha;
-  fill(150);
-  text("shoulder", 20, height - 140);
-  text("rotation", 20, height - 130);
-  drawServo(alphaServo, 95, height - 140);
-  alphauSec = constrain(servouSec(-alpha), 1200, 1800);  // also constrained in Arduino
-  knobServoAlpha.setValue(alphauSec);
-  
-  // theta1 ----
-  if (theta1 > PI) {
-    theta1Servo = TWO_PI-theta1;
-  } else {
-    theta1Servo = -theta1;
-  }
-  fill(150);
-  text("shoulder", 20, height - 90);
-  text("extension", 20, height - 80);
-  drawServo(theta1Servo, 95, height - 90);
-  theta1uSec = constrain(servouSec(theta1Servo), 1400, 2100);  // also constrained in Arduino
-  knobServoTheta1.setValue(theta1uSec);
-  
-  // theta2 ----
-  theta2Servo = theta2 + PI/2;
-  fill(150);
-  text("elbow", 20, height - 40);
-  text("extension", 20, height - 30);
-  drawServo(theta2Servo, 95, height - 40);
-  theta2uSec = constrain(servouSec(-theta2Servo), 1000, 1700);  // also constrained in Arduino
-  knobServoTheta2.setValue(theta2uSec);
-}
-
-//=========================================================================================================================== 
-void drawServo(float angle, int posnX, int posnY) {
   pushMatrix();
-  translate(posnX, posnY);
-  fill(2, 52, 77);
-  noStroke();
-  ellipse(0, 0, 30, 30);
-  
-  pushMatrix();
-  rotate(angle - PI/2);
-  stroke(1, 108, 158);
-  strokeWeight(3);
-  line(0, 0, 17, 0);
+    translate(screenCentreX, -screenCentreY, screenCentreZ);
+    rotateX(screenTilt);
+    
+    beginShape(QUADS);
+    // XY plane
+    vertex(screenXsize/2, screenYsize/2, 0);
+    vertex(-screenXsize/2, screenYsize/2, 0);
+    vertex(-screenXsize/2, -screenYsize/2, 0);
+    vertex(screenXsize/2, -screenYsize/2, 0);
+    endShape(); 
   popMatrix();
-  
-  int degrees = int(180/PI*angle);
-  fill(255);
-  text(degrees, 23, 3);
-  
-  popMatrix();
-  
 }
 
 //=========================================================================================================================== 
 void printDebug() {
   fill(255);
-  text("alpha:  " + nf(alpha, 0, 2), 20, 100);
-  text("A:        " + nf(A, 0, 1), 20, 115);
-  text("B:        " + nf(B, 0, 1), 20, 130);
-  text("q1:      " + nf(q1, 0, 2), 20, 145);
-  text("q2:      " + nf(q2, 0, 2), 20, 160);
-  text("theta1: " + nf(theta1, 0, 2), 20, 175);
-  text("theta2: " + nf(theta2, 0, 2), 20, 190);
+  int textY = 675;
+  text("A:        " + nf(A, 0, 1), 100, textY);
+  text("B:        " + nf(B, 0, 1), 100, textY+15);
+  text("q1:      " + nf(q1, 0, 2), 100, textY+30);
+  text("q2:      " + nf(q2, 0, 2), 100, textY+45);
+  text("alpha:  " + nf(alpha, 0, 2), 100, textY+60);
+  text("theta1: " + nf(theta1, 0, 2), 100, textY+75);
+  text("theta2: " + nf(theta2, 0, 2), 100, textY+90);
   
   //println("alpha:" + alpha + "  " + "A:" + A + "  " + "B:" + B + "  " + "q1a:" + q1a + "  " + "q1:" + q1 + "  " + "q2:" + q2 + "  " + "theta1:" + theta1 + "  " + "theta2:" + theta2); 
 }
 
-//=========================================================================================================================== 
-void keyPressed() {
- if (key == ' ') {
- 
-   sketchStart = millis();
-   sketching = !sketching; 
-   //sketchPoints = new ArrayList<PVector>();
-   sketchPoints.clear();
-   
- } else if (key == 'x' || key == 'X') {
-   sketchPoints.clear();
- }
-  
-}
-
-//=========================================================================================================================== 
-void sketch() {
-  z = -210.0;
-  int faceCenterX = 30;
-  int faceCenterY = 0;
-  
-  float sketchAngle;
-  
-  if (millis() < sketchStart + sketchTime1) {
-    sketchAngle = (millis() - sketchStart) / float(sketchTime1) * TWO_PI;
-    x = faceDiam * sin(sketchAngle) + faceCenterX;
-    y = faceDiam * cos(sketchAngle) + faceCenterY;
-    
-    PVector thispoint = new PVector(x, y, z);
-    sketchPoints.add(thispoint);
-
-  } else if (millis() < sketchStart + sketchTime1 + sketchTime2) {
-    sketchAngle = (millis() - (sketchStart + sketchTime1)) / float(sketchTime2) * TWO_PI;
-    x = eyeDiam * sin(sketchAngle) - 20 + faceCenterX;
-    y = eyeDiam * cos(sketchAngle) + 20 + faceCenterY;
-    
-    PVector thispoint = new PVector(x, y, z);
-    sketchPoints.add(thispoint);    
-
-  } else if (millis() < sketchStart + sketchTime1 + sketchTime2 + sketchTime3) {
-    sketchAngle = (millis() - (sketchStart + sketchTime1 + sketchTime2)) / float(sketchTime3) * TWO_PI;
-    x = eyeDiam * sin(sketchAngle) + 20 + faceCenterX;
-    y = eyeDiam * cos(sketchAngle) + 20 + faceCenterY;
-    
-    PVector thispoint = new PVector(x, y, z);
-    sketchPoints.add(thispoint);      
-
-  } else if (millis() < sketchStart + sketchTime1 + sketchTime2 + sketchTime3 + sketchTime4) {
-    sketchAngle = TWO_PI/3 + (millis() - (sketchStart + sketchTime1 + sketchTime2 + sketchTime3)) / float(sketchTime4) * TWO_PI/3;
-    x = mouthDiam * sin(sketchAngle) + faceCenterX;
-    y = mouthDiam * cos(sketchAngle) + faceCenterY;
-    
-    PVector thispoint = new PVector(x, y, z);
-    sketchPoints.add(thispoint);      
-    
-  } else {
-//    if (!moving) {
-//      toX = 200;
-//      toY = 100;
-//      toZ = 100;
-//      fromX = x;
-//      fromY = y;
-//      fromZ = z;
-//      moveDuration = 1000;
-//      moveStart = millis();
-//      moving = true;
-//    }
-    
-    //sketching = false;
-    sketchStart = millis();
-    sketchPoints.clear();
-    
-  }
-
-  
-}
-
-//=========================================================================================================================== 
-void drawSketch() {
-    for (int i = sketchPoints.size()-1; i >= 0; i--) {
-    PVector thisPoint = sketchPoints.get(i);
-    float thisX = thisPoint.x;
-    float thisY = thisPoint.y;
-    float thisZ = thisPoint.z;
-    
-    pushMatrix();
-    translate(thisX, -thisY, thisZ);
-    
-    beginShape();
-         fill(255);
-         vertex(-2, -2, 0);
-         vertex(2, -2, 0);
-         vertex(2, 2, 0);
-         vertex(-2, 2, 0);
-    endShape();
-    popMatrix();
-  }
-}
-
-//=========================================================================================================================== 
-void move() {
-  if (moving) {
-    if (millis() > moveStart + moveDuration) {
-      moving = false;
-    } else {
-      x = (millis() - moveStart) / moveDuration * (toX - fromX);
-      y = (millis() - moveStart) / moveDuration * (toY - fromY);
-      z = (millis() - moveStart) / moveDuration * (toZ - fromZ);
-    }
-  }
-}
-
-//=========================================================================================================================== 
-void drawNotes() {
-  fill(200);
-  text("press <SPACE> to start sketch", width - 200, height - 30);
-  text("press <X> to clear sketch", width - 200, height - 15);
-}
-
 //===========================================================================================================================
-void sendData() {
-//  int alphaMicroseconds = servouSec(-alpha);
-//  int theta1Microseconds = servouSec(theta1Servo);
-//  int theta2Microseconds = servouSec(-theta2Servo);
+void addUI() {
+    // arm X,Y,Z sliders ------------------------------------------------------
+    cp5 = new ControlP5(this);
+    // armX slider
+    sliderArmX = cp5.addSlider("armX")
+     .setPosition(20,20)
+     .setSize(200, 10)
+     .setRange(-(upperArmLength+lowerArmLength),upperArmLength+lowerArmLength)
+     .setValue(0.0);
+     ;
+    
+    // armY slider
+    sliderArmY = cp5.addSlider("armY")
+     .setPosition(20,40)
+     .setSize(200, 10)
+     .setRange(-(upperArmLength+lowerArmLength),upperArmLength+lowerArmLength)
+     .setValue(0.0)
+     ;
+
+    // armZ slider     
+    sliderArmZ = cp5.addSlider("armZ")
+     .setPosition(20,60)
+     .setSize(200, 10)
+     .setRange(-(upperArmLength+lowerArmLength),upperArmLength+lowerArmLength)
+     .setValue(-200.0)
+     ; 
+
+    // arm X,Y,Z sliders ------------------------------------------------------
+    // screenX slider
+    cp5.addSlider("screenX")
+     .setPosition(20,100)
+     .setSize(200, 10)
+     .setRange(-screenXsize/2,screenXsize/2)
+     .setValue(0.0);
+     ;
+    
+    // screenY slider
+    cp5.addSlider("screenY")
+     .setPosition(20,120)
+     .setSize(200, 10)
+     .setRange(-screenYsize/2,screenYsize/2)
+     .setValue(0.0)
+     ;
+
+    // screenZ slider     
+     cp5.addSlider("screenZ")
+     .setPosition(20,140)
+     .setSize(200, 10)
+     .setRange(0.0, 50.0)
+     .setValue(0.0)
+     ;   
+    
+    // armXYZ vs screenXYZ toggle ---------------------------------------------
+    cp5.addToggle("screenXYZ")
+       .setPosition(20,160)
+       .setSize(50,20)
+       .setValue(true);
+       ;
+    
+    // origin X,Y,Z sliders ------------------------------------------------------
+    // origin X slider
+    cp5.addSlider("originX")
+     .setPosition(width-270,20)
+     .setSize(200, 10)
+     .setRange(-PI/2,PI/2)
+     .setValue(-0.2)
+     ;
   
-//  print(millis() + ",");
-//  print(alphauSec + ",");
-//  print(theta1uSec + ",");
-//  println(theta2uSec);
+    // origin Y slider
+    cp5.addSlider("originY")
+     .setPosition(width-270,40)
+     .setSize(200, 10)
+     .setRange(-PI/2,PI/2)
+     .setValue(-1.4)
+     ; 
   
-  arduino.write(65);  // 'A'
-  arduino.write(char(alphauSec));
-  arduino.write(char(alphauSec) >> 8);
-  arduino.write(char(theta1uSec));
-  arduino.write(char(theta1uSec) >> 8); 
-  arduino.write(char(theta2uSec));
-  arduino.write(char(theta2uSec) >> 8);  
+    // origin Z slider
+    cp5.addSlider("originZ")
+     .setPosition(width-270,60)
+     .setSize(200, 10)
+     .setRange(-PI/2,PI/2)
+     .setValue(0.0)
+     ;
 
+    // screen orientation sliders -----------------------------------------------
+    float initialValue = screenCentreX;  // strange behaviour where it doesn't work if I put 'screenDistance' in .setValue
+    cp5.addSlider("screenCentreX")
+     .setPosition(width-270,100)
+     .setSize(200, 10)
+     .setRange(-screenXsize/2, screenXsize/2)
+     .setValue(initialValue)
+     ;
+
+    initialValue = screenCentreY;  // strange behaviour where it doesn't work if I put 'screenDistance' in .setValue
+    cp5.addSlider("screenCentreY")
+     .setPosition(width-270,120)
+     .setSize(200, 10)
+     .setRange(-screenYsize/2, screenYsize/2)
+     .setValue(initialValue)
+     ;
+     
+    initialValue = screenCentreZ;  // strange behaviour where it doesn't work if I put 'screenDistance' in .setValue
+    cp5.addSlider("screenCentreZ")
+     .setPosition(width-270,140)
+     .setSize(200, 10)
+     .setRange(-upperArmLength, -upperArmLength - lowerArmLength)
+     .setValue(initialValue)
+     ;
+     
+    cp5.addSlider("screenTilt")
+     .setPosition(width-270,160)
+     .setSize(200, 10)
+     .setRange(0,PI/4)
+     .setValue(screenTilt)
+     ;      
+     
+    // XYZ vs servo angle input toggle -----------------------------------------
+    cp5.addToggle("servoMode")
+       .setPosition(20,400)
+       .setSize(50,20)
+       ;
+
+    // servo knobs -------------------------------------------------------------
+    // servo1 'alpha' knob
+    knobServo1 = cp5.addKnob("servo1.angle")
+               .setRange(-servo1.angleRange/2,servo1.angleRange/2)
+               .setValue(0)
+               .setPosition(20,450)
+               .setRadius(25)
+               .setDragDirection(Knob.HORIZONTAL)
+               .setViewStyle(1)
+               .setAngleRange(servo1.angleRange)
+               .setStartAngle(PI/2 + ((TWO_PI - servo1.angleRange)/2))
+               ;
+     
+     // servo2 'theta1' knob
+     knobServo2 = cp5.addKnob("servo2.angle")
+               .setRange(-servo2.angleRange/2,servo2.angleRange/2)
+               .setValue(0)
+               .setPosition(20,570)
+               .setRadius(25)
+               .setDragDirection(Knob.HORIZONTAL)
+               .setViewStyle(1)
+               .setAngleRange(servo2.angleRange)
+               .setStartAngle(PI/2 + ((TWO_PI - servo2.angleRange)/2))
+               ;
+               
+     // servo3 'theta2' knob
+     knobServo3 = cp5.addKnob("servo3.angle")
+               .setRange(-servo3.angleRange/2,servo3.angleRange/2)
+               .setValue(0)
+               .setPosition(20,690)
+               .setRadius(25)
+               .setDragDirection(Knob.HORIZONTAL)
+               .setViewStyle(1)
+               .setAngleRange(servo3.angleRange)
+               .setStartAngle(PI/2 + ((TWO_PI - servo3.angleRange)/2))
+               ;
 }
-
-//===========================================================================================================================
-int servouSec(float angle) {
-  return servoCenter + int(servoRangeuSec/servoRangeRad * angle);  // uSec
-}
-
-//===========================================================================================================================
-float servoAngle(int uSec) {
-  return (uSec - servoCenter)*servoRangeRad/servoRangeuSec;  // radians
-  
-}
-
