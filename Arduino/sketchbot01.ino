@@ -71,9 +71,9 @@ void loop() {
   }
   Serial.println("");
   
-  servoAlpha.writeMicroseconds(constrain(servoAlphaPos, 1200, 1800));
-  servoTheta1.writeMicroseconds(constrain(servoTheta1Pos, 1400, 2100));
-  servoTheta2.writeMicroseconds(constrain(servoTheta2Pos, 1000, 1700));
+  servoAlpha.writeMicroseconds(constrain(servoAlphaPos, 900, 2100));
+  servoTheta1.writeMicroseconds(constrain(servoTheta1Pos, 900, 2100));
+  servoTheta2.writeMicroseconds(constrain(servoTheta2Pos, 900, 2100));
   
 //  Serial.print(servoAlphaPos);
 //  Serial.print("  ");
