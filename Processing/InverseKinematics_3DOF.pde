@@ -1,7 +1,12 @@
-boolean connected = false;    // set to false when Arduino isn't connected
+boolean connected = true;    // set to false when Arduino isn't connected
 
 import processing.serial.*;
 Serial arduino;
+
+import de.voidplus.leapmotion.*;
+LeapMotion leap;
+Hand hand;
+boolean leapInput = false;
 
 import controlP5.*;
 ControlP5 cp5;
@@ -11,23 +16,28 @@ Knob knobServo3;
 Slider sliderArmX;
 Slider sliderArmY;
 Slider sliderArmZ;
+Slider sliderScreenX;
+Slider sliderScreenY;
+Slider sliderScreenZ;
 
 boolean servoMode = false;
 boolean screenXYZ = true;
 
+int screenXpixels = 768;
+int screenYpixels = 1024;
 float screenXsize = 149;
 float screenYsize = 198;
-float screenTilt = PI/16;  // radians from vertical
-float screenDistance = 175.0;  // mm from shoulder joint to middle of screen
-float screenCentreX = 30.0;
-float screenCentreY = -30.0;
-float screenCentreZ = -185.0;
+float screenTilt = 0.18;  // radians from vertical
+
+float screenCentreX = 30.0;  // mm from shoulder joint to middle of screen
+float screenCentreY = -29.7;
+float screenCentreZ = -211.0;
 
 float originX;
 float originY;
 float originZ;
 
-float originAxisSize = 350;
+float originAxisSize = 200;
 float originPlaneSize = 250;
 
 float armX;
@@ -38,7 +48,7 @@ float screenY;
 float screenZ;
 
 float upperArmLength = 114;
-float lowerArmLength = 128;
+float lowerArmLength = 132;
 
  float alpha;
  float A; 
@@ -64,7 +74,20 @@ float lowerArmLength = 128;
  boolean sketching;
 
  ArrayList<PVector> sketchPoints;
-
+ //Path squarePath = new Path("square");
+ Goto move = new Goto();
+ Path square = new Path("square");
+ Path face = new Path("face");
+ 
+ float deltaX = 2.0;
+ float deltaY = 2.0;
+ float deltaZ = 1.0;
+ int deltaXdirection;
+ int deltaYdirection;
+ int deltaZdirection;
+ boolean arrowsMove = false;
+ boolean mouseMove = false;
+ 
 //=========================================================================================================================== 
  void setup() {
     size(800, 800, P3D); 
@@ -76,6 +99,8 @@ float lowerArmLength = 128;
     sketchPoints = new ArrayList<PVector>();
     
     addUI();
+    
+    leap = new LeapMotion(this);
  }
 
 //===========================================================================================================================  
@@ -83,9 +108,24 @@ float lowerArmLength = 128;
   background(0);
   
   if (!servoMode) {           // get x, y, z coordinates
-    if (sketching) {             // if in drawing mode               
-      sketch();                    // get coords from drawing
-    }                            // if not sketching, get coords from x, y, z sliders
+//    if (sketching) {             // if in drawing mode               
+//      sketch();                    // get coords from drawing
+//    }                            // if not sketching, get coords from x, y, z sliders
+    
+    if(move.running) {
+      move.update();
+    } else if(square.running) {
+      square.update();
+    } else if(face.running) {
+      face.update();
+    } else if (leapInput) {
+      readLeap();
+    }else if (arrowsMove) {
+      arrowsInput();
+    } else if (mouseMove) {
+      mouseInput();
+    }
+    
     if (screenXYZ) {           // if inputting screen coords, 
       calculateXYZ();            // calculate arm coords
     }
@@ -99,7 +139,7 @@ float lowerArmLength = 128;
   if (connected) sendData();
 
   drawModel();
-  printDebug();
+  //printDebug();
   
 
  }
@@ -188,17 +228,86 @@ void readJointAngles() {
 
 //=========================================================================================================================== 
 void keyPressed() {
- if (key == ' ') {
- 
-   sketchStart = millis();
-   sketching = !sketching; 
-   //sketchPoints = new ArrayList<PVector>();
-   sketchPoints.clear();
+ if (key == CODED) {
+   if (keyCode == LEFT) {
+     arrowsMove = true;
+     deltaXdirection = -1;
+   } else if (keyCode == RIGHT) {
+     arrowsMove = true;
+     deltaXdirection = 1;
+   } else if (keyCode == UP) {
+     arrowsMove = true;
+     deltaYdirection = 1;
+   } else if (keyCode == DOWN) {
+     arrowsMove = true;
+     deltaYdirection = -1;
+   }
    
- } else if (key == 'x' || key == 'X') {
-   sketchPoints.clear();
+ } else {
+   if (key == ' ') {
+     sketchStart = millis();
+     sketching = !sketching; 
+     //sketchPoints = new ArrayList<PVector>();
+     sketchPoints.clear();
+     
+   } else if (key == 'x' || key == 'X') {
+     sketchPoints.clear();
+   } else if (key == 'h' || key == 'H') {
+     move.to(-60, 80, screenZ, 200);
+   } else if (key == 'c' || key == 'C') {
+     move.to(0, 0, screenZ, 200);
+   } else if (key == 'g' || key == 'G') {
+     move.to(50, 50, screenZ, 200);
+   } else if (key == 'p' || key == 'P') {
+     square.start();
+   } else if (key == 'f' || key == 'F') {
+     if (!face.running) {
+       face.start();
+     } else {
+       face.running = false;
+     }
+   } else if (key == '1') {
+     move.to(-70, 95, screenZ, 400);
+   } else if (key == '2') {
+     move.to(70, 95, screenZ, 400);
+   } else if (key == '3') {
+     move.to(70, -95, screenZ, 400);
+   } else if (key == '4') {
+     move.to(-70, -95, screenZ, 400);
+   } else if (key == 'l' || key == 'L') {
+     leapInput = !leapInput;
+   } else if (key == 'a' || key == 'A') {
+     arrowsMove = true;
+     deltaZdirection = -1;
+   } else if (key == 'z' || key == 'Z') {
+     arrowsMove = true;
+     deltaZdirection = 1;
+   } else if (key == 'm' || key == 'M') {
+     mouseMove = !mouseMove;
+   }
  }
   
+}
+
+//===========================================================================================================================
+void keyReleased() {
+ if (key == CODED) {
+   if (keyCode == LEFT || keyCode == RIGHT) {
+     arrowsMove = false;
+     deltaXdirection = 0;
+   } else if (keyCode == UP || keyCode == DOWN) {
+     arrowsMove = false;
+     deltaYdirection = 0;
+   }
+ } else {
+   if (key == 'a' || key == 'A') {
+     arrowsMove = false;
+     deltaZdirection = 0;
+   } else if (key == 'z' || key == 'Z') {
+     arrowsMove = false;
+     deltaZdirection = 0;
+   }
+ }
 }
 
 //=========================================================================================================================== 
@@ -290,7 +399,7 @@ void drawModel() {
   stroke(255, 100);
   noFill();
   pushMatrix();
-    translate(width/2, height/2, 0);
+    translate(width/2.5, height/2, 300);
     
     rotateX(originX);    
     rotateY(originY);
@@ -376,7 +485,7 @@ void drawAxes() {
    noStroke();
    pushMatrix();
      translate(armX, -armY, armZ);
-     sphere(5);
+     sphere(4);
    popMatrix();
   
    // draw arm -----------
@@ -399,7 +508,7 @@ void drawAxes() {
        stroke(50, 70, 190);
        strokeWeight(1);
        vertex(0, 0, 0);
-       vertex(30, 0, 0);
+       vertex(25, 0, 0);
        endShape();
        
        //rotateY(PI - theta1);
@@ -427,7 +536,7 @@ void drawAxes() {
            stroke(50, 70, 190);
            strokeWeight(1);
            vertex(0, 0, 0);
-           vertex(25, 0, 0);
+           vertex(15, 0, 0);
            endShape();
            
            
@@ -462,19 +571,72 @@ void drawScreen() {
     rotateX(screenTilt);
     
     beginShape(QUADS);
-    // XY plane
-    vertex(screenXsize/2, screenYsize/2, 0);
-    vertex(-screenXsize/2, screenYsize/2, 0);
-    vertex(-screenXsize/2, -screenYsize/2, 0);
-    vertex(screenXsize/2, -screenYsize/2, 0);
+      // XY plane
+      vertex(screenXsize/2, screenYsize/2, 0);
+      vertex(-screenXsize/2, screenYsize/2, 0);
+      vertex(-screenXsize/2, -screenYsize/2, 0);
+      vertex(screenXsize/2, -screenYsize/2, 0);
     endShape(); 
+    
+    //drawPath();
+    
   popMatrix();
+}
+
+//===========================================================================================================================
+//void drawPath() {
+//  pushMatrix();
+//  translate(0, 0, 1);
+//  for (int i = 0; i < squarePath.locations.size(); i++) {
+//      PVector nextLocation = squarePath.locations.get(i);
+//      noStroke();
+//      fill(255, 0, 0);
+//      ellipse(nextLocation.x, nextLocation.y, 5, 5);
+//  }  
+//  popMatrix();
+//  
+//}
+
+//===========================================================================================================================
+void readLeap() {
+  if (leap.hasHands()) {
+    hand = leap.getHands().get(0);
+    
+    float leapX = hand.getPosition().x;
+    float leapY = hand.getPosition().y;
+    float leapZ = hand.getPosition().z;  
+    screenX = constrain(map(leapX, 320, 475, -screenXsize/2, screenXsize/2), -screenXsize/2, screenXsize/2);
+    screenY = constrain(map(leapY, 600, 400, -screenYsize/2, screenYsize/2), -screenYsize/2, screenYsize/2);
+    screenZ = constrain(map(leapZ, 40, 30, 0, 50), 0, 50);
+    //println(leapX + "  " + leapY);
+    sliderScreenX.setValue(screenX);
+    sliderScreenY.setValue(screenY);
+    sliderScreenZ.setValue(screenZ);
+  }
+}
+
+//===========================================================================================================================
+void arrowsInput() {
+  screenX = constrain(screenX + (deltaX * deltaXdirection), -screenXsize/2, screenXsize/2);
+  screenY = constrain(screenY + (deltaY * deltaYdirection), -screenYsize/2, screenYsize/2); 
+  screenZ = constrain(screenZ + (deltaZ * deltaZdirection), 0, 50);
+  sliderScreenX.setValue(screenX);
+  sliderScreenY.setValue(screenY);
+  sliderScreenZ.setValue(screenZ);
+}
+
+//===========================================================================================================================
+void mouseInput() {
+  screenX = constrain(map(mouseX, 100, 700, -screenXsize/2, screenXsize/2), -screenXsize/2, screenXsize/2);
+  screenY = constrain(map(mouseY, 0, 800, screenYsize/2, -screenYsize/2), -screenYsize/2, screenYsize/2); 
+  sliderScreenX.setValue(screenX);
+  sliderScreenY.setValue(screenY);
 }
 
 //=========================================================================================================================== 
 void printDebug() {
   fill(255);
-  int textY = 675;
+  int textY = 695;
   text("A:        " + nf(A, 0, 1), 100, textY);
   text("B:        " + nf(B, 0, 1), 100, textY+15);
   text("q1:      " + nf(q1, 0, 2), 100, textY+30);
@@ -511,12 +673,12 @@ void addUI() {
      .setPosition(20,60)
      .setSize(200, 10)
      .setRange(-(upperArmLength+lowerArmLength),upperArmLength+lowerArmLength)
-     .setValue(-200.0)
+     .setValue(-100.0)
      ; 
 
     // arm X,Y,Z sliders ------------------------------------------------------
     // screenX slider
-    cp5.addSlider("screenX")
+    sliderScreenX = cp5.addSlider("screenX")
      .setPosition(20,100)
      .setSize(200, 10)
      .setRange(-screenXsize/2,screenXsize/2)
@@ -524,7 +686,7 @@ void addUI() {
      ;
     
     // screenY slider
-    cp5.addSlider("screenY")
+    sliderScreenY = cp5.addSlider("screenY")
      .setPosition(20,120)
      .setSize(200, 10)
      .setRange(-screenYsize/2,screenYsize/2)
@@ -532,11 +694,11 @@ void addUI() {
      ;
 
     // screenZ slider     
-     cp5.addSlider("screenZ")
+    sliderScreenZ = cp5.addSlider("screenZ")
      .setPosition(20,140)
      .setSize(200, 10)
      .setRange(0.0, 50.0)
-     .setValue(0.0)
+     .setValue(15.0)
      ;   
     
     // armXYZ vs screenXYZ toggle ---------------------------------------------
@@ -552,7 +714,7 @@ void addUI() {
      .setPosition(width-270,20)
      .setSize(200, 10)
      .setRange(-PI/2,PI/2)
-     .setValue(-0.2)
+     .setValue(-0.6)
      ;
   
     // origin Y slider
@@ -560,7 +722,7 @@ void addUI() {
      .setPosition(width-270,40)
      .setSize(200, 10)
      .setRange(-PI/2,PI/2)
-     .setValue(-1.4)
+     .setValue(-1.0)
      ; 
   
     // origin Z slider
@@ -572,7 +734,7 @@ void addUI() {
      ;
 
     // screen orientation sliders -----------------------------------------------
-    float initialValue = screenCentreX;  // strange behaviour where it doesn't work if I put 'screenDistance' in .setValue
+    float initialValue = screenCentreX;  // strange behaviour where it doesn't work if I put 'screenCentreX' in .setValue
     cp5.addSlider("screenCentreX")
      .setPosition(width-270,100)
      .setSize(200, 10)
@@ -580,7 +742,7 @@ void addUI() {
      .setValue(initialValue)
      ;
 
-    initialValue = screenCentreY;  // strange behaviour where it doesn't work if I put 'screenDistance' in .setValue
+    initialValue = screenCentreY;  // strange behaviour where it doesn't work if I put 'screenCentreY' in .setValue
     cp5.addSlider("screenCentreY")
      .setPosition(width-270,120)
      .setSize(200, 10)
@@ -588,7 +750,7 @@ void addUI() {
      .setValue(initialValue)
      ;
      
-    initialValue = screenCentreZ;  // strange behaviour where it doesn't work if I put 'screenDistance' in .setValue
+    initialValue = screenCentreZ;  // strange behaviour where it doesn't work if I put 'screenCentreZ' in .setValue
     cp5.addSlider("screenCentreZ")
      .setPosition(width-270,140)
      .setSize(200, 10)
