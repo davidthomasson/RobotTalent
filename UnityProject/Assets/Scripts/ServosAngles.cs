@@ -37,10 +37,11 @@ public class ServosAngles : MonoBehaviour {
 	public Vector3 armXYZ;
 	public Vector3 jointAngles;
 	public Vector3 servosAngles;
-	
-	private const float toDeg = 180/Mathf.PI;
-	private const float toRad = Mathf.PI/180;
-	
+
+	Servo servo1 = new Servo(Mathf.PI/2, 1200, 1500, -45 * Mathf.Deg2Rad, 45 * Mathf.Deg2Rad);
+	Servo servo2 = new Servo(Mathf.PI/2, 1200, 1460, -45 * Mathf.Deg2Rad, 45 * Mathf.Deg2Rad);
+	Servo servo3 = new Servo(Mathf.PI/2, 1200, 1500, -45 * Mathf.Deg2Rad, 45 * Mathf.Deg2Rad);
+
 	//===========================
 	
 	// Line structure used to guide the robot
@@ -71,8 +72,8 @@ public class ServosAngles : MonoBehaviour {
 	}
 	
 	void UpdateRobot(Vector3 pScreenXYZ){
-		//screenTiltRad = screenTiltDeg * toRad;
-		screenTiltDeg = screenTiltRad * toDeg;
+		//screenTiltRad = screenTiltDeg * Mathf.Deg2Rad;
+		screenTiltDeg = screenTiltRad * Mathf.Rad2Deg;
 		
 		InitializeScreen();
 		armXYZ 		 = ConvertScreenToArmXYZ(pScreenXYZ);
@@ -125,6 +126,7 @@ public class ServosAngles : MonoBehaviour {
 		theta2 = pJointAngles.z;
 		
 		//alpha
+		servo1.setAngle(alpha);
 		angles.x = alpha;
 		
 		//theta1
@@ -133,9 +135,11 @@ public class ServosAngles : MonoBehaviour {
 		} else {
 			theta1 = -theta1;
 		}  
+		servo2.setAngle(theta1 + Mathf.PI/4);
 		angles.y = theta1 + Mathf.PI/4;
 		
 		//theta2
+		servo3.setAngle(theta2 + Mathf.PI/4);
 		angles.z = theta2 + Mathf.PI/4;
 		
 		return angles;
@@ -146,10 +150,10 @@ public class ServosAngles : MonoBehaviour {
 	void SetJointsTransforms(Vector3 pJointAngles){
 		//pJointAngles = debug;
 		//pJointAngles = Vector3.zero;
-		alphaTransform.localRotation  = Quaternion.AngleAxis(pJointAngles.x*toDeg, alphaTransform.right);
-		theta1Transform.localEulerAngles = new Vector3(0, pJointAngles.y * toDeg, 0);
+		alphaTransform.localRotation  = Quaternion.AngleAxis(pJointAngles.x * Mathf.Rad2Deg, alphaTransform.right);
+		theta1Transform.localEulerAngles = new Vector3(0, pJointAngles.y * Mathf.Rad2Deg, 0);
 		theta2Transform.localPosition = new Vector3(0, 0, upperArmLength * scale);
-		theta2Transform.localEulerAngles = new Vector3(0, pJointAngles.z * toDeg, 0);
+		theta2Transform.localEulerAngles = new Vector3(0, pJointAngles.z * Mathf.Rad2Deg, 0);
 		stylusTransform.localPosition = new Vector3(0, 0, lowerArmLength * scale);
 
 	}
