@@ -24,9 +24,9 @@ public class ServosAngles : MonoBehaviour {
 	public Transform theta1Transform;
 	public Transform theta2Transform;
 	public Transform stylusTransform;
-	
+
 	public Vector3 	screenSize = new Vector3(149, 198, 50);
-	public Vector3 	screenCentre = new Vector3(30,-29.7F,-211);
+	public Vector3 	screenCentre = new Vector3(0, 0, -211);
 	private float 	screenTiltDeg;
 	private float 	screenTiltRad = 0.18F;
 	
@@ -53,7 +53,15 @@ public class ServosAngles : MonoBehaviour {
 	//===========================
 	
 	void Start () {
-		
+		theta1Transform.parent = alphaTransform;
+		theta2Transform.parent = theta1Transform;
+		stylusTransform.parent = theta2Transform;
+
+		alphaTransform.localScale = new Vector3 (1, 1, 1);
+		theta1Transform.localScale = new Vector3 (1, 1, 1);
+		theta2Transform.localScale = new Vector3 (1, 1, 1);
+		stylusTransform.localScale = new Vector3 (1, 1, 1);
+
 	}
 	
 	//===========================
@@ -139,17 +147,15 @@ public class ServosAngles : MonoBehaviour {
 		//pJointAngles = debug;
 		//pJointAngles = Vector3.zero;
 		alphaTransform.localRotation  = Quaternion.AngleAxis(pJointAngles.x*toDeg, alphaTransform.right);
-		theta1Transform.localRotation = alphaTransform.localRotation;
-		theta2Transform.localRotation = alphaTransform.localRotation;
-		theta1Transform.Rotate(Vector3.up, (pJointAngles.y - 0)*toDeg, Space.Self);
-		theta2Transform.Rotate(Vector3.up, (pJointAngles.z + 45)*toDeg, Space.Self);
-		
-		theta2Transform.position = theta1Transform.position + theta1Transform.forward * upperArmLength * scale;
-		stylusTransform.position = theta2Transform.position + theta2Transform.forward * lowerArmLength * scale;
+		theta1Transform.localEulerAngles = new Vector3(0, pJointAngles.y * toDeg, 0);
+		theta2Transform.localPosition = new Vector3(0, 0, upperArmLength * scale);
+		theta2Transform.localEulerAngles = new Vector3(0, pJointAngles.z * toDeg, 0);
+		stylusTransform.localPosition = new Vector3(0, 0, lowerArmLength * scale);
+
 	}
 	
 	//===========================
-	
+
 	float sliderScreenX = 0;
 	float sliderScreenY = 0;
 	float sliderScreenZ = 15;
@@ -169,16 +175,15 @@ public class ServosAngles : MonoBehaviour {
 		GUILayout.Label(armXYZ.ToString() + " > armXYZ");
 		GUILayout.Label((stylusTransform.position/scale).ToString() + " > armXYZ in game");
 		GUILayout.EndVertical();
-		
+
 	}
 	
 	//===========================
 	
 	void InitializeScreen(){
-		
 		screen.localScale = new Vector3(screenSize.x, 1, screenSize.y) * scale / 10;
 		screen.position = new Vector3(screenCentre.x, screenCentre.y, -screenCentre.z) * scale;
-		screen.localEulerAngles = new Vector3(screenTiltDeg + 45, 180, 0);
+		screen.localEulerAngles = new Vector3(90 - screenTiltDeg, 180, 0);
 	}
 	
 		
