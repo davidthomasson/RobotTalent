@@ -7,7 +7,8 @@ public class SerialToArduino : MonoBehaviour {
 
 	public int COMNumber = 11;
 	protected SerialPort sp;
-	
+	public static byte[] ServoBytes = new byte[7];
+
 	void Start()
 	{
 		sp = new SerialPort("\\\\.\\COM" + COMNumber, 9600);
@@ -21,32 +22,38 @@ public class SerialToArduino : MonoBehaviour {
 			sp.Open();
 			sp.ReadTimeout = 16;
 		}
+
+		StartCoroutine( SendBytesToArduino() );
 	}
 	
 	void Update ()
 	{
-		int objectPosX = (int)transform.position.x;
-		byte[] objectPosXByte = BitConverter.GetBytes(objectPosX);
-		
-		//		Debug.Log(BitConverter.IsLittleEndian);
-		//		IsLittleEndian is True here
-		
-		if(sp.IsOpen){
-			try{
-				sp.Write(objectPosXByte, 0, 1);
-				
-				Debug.Log("--");
-				foreach(byte b in objectPosXByte)
-					Debug.Log(b.ToString());
-			}
-			catch(Exception e){
-				Debug.Log(e);
-			}
-		}
+
 	}
-	
+
 	void OnApplicationQuit() 
 	{
 		sp.Close();
+	}
+
+	IEnumerator SendBytesToArduino(){
+		while( true ){			
+			//		Debug.Log(BitConverter.IsLittleEndian);
+			//		IsLittleEndian is True here
+			
+			if(sp.IsOpen){
+				try{
+					sp.Write(ServoBytes, 0, 7);
+
+//					Debug.Log("--");
+//					foreach(byte b in objectPosXByte)
+//						Debug.Log(b.ToString());
+				}
+				catch(Exception e){
+					Debug.Log(e);
+				}
+			}
+			yield return null;
+		}
 	}
 }

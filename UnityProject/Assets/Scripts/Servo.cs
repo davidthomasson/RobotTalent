@@ -2,7 +2,7 @@
 
 public class Servo {
 	float angle;               // current angle (radians) of the servo from it's centre point
-	int microSeconds;          // microSeconds value to send to servo to get current angle
+	public int microSeconds;          // microSeconds value to send to servo to get current angle
 	float angleRange;          // radians from max CCW to max CW
 	int microSecondsRange;     // uSec from max CCW to max CW
 	int microSecondsCentre;    // uSec to get servo horm pointing exactly center

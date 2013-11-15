@@ -81,6 +81,7 @@ public class ServosAngles : MonoBehaviour {
 		servosAngles = CalculateServoAngles(jointAngles);
 		
 		SetJointsTransforms(jointAngles);
+		SendData();
 	}
 	
 	//===========================
@@ -265,7 +266,28 @@ public class ServosAngles : MonoBehaviour {
 	}
 	
 	//===========================
-	
+
+	void SendData() {
+
+		byte[] servoBytes = new byte[7];
+
+		byte[] servo1Bytes = BitConverter.GetBytes(servo1.microSeconds);
+		byte[] servo2Bytes = BitConverter.GetBytes(servo2.microSeconds);
+		byte[] servo3Bytes = BitConverter.GetBytes(servo3.microSeconds);
+
+		servoBytes[0] = BitConverter.GetBytes(65)[0];
+		servoBytes[1] = servo1Bytes[0];
+		servoBytes[2] = servo1Bytes[1];
+		servoBytes[3] = servo2Bytes[0];
+		servoBytes[4] = servo2Bytes[1];
+		servoBytes[5] = servo3Bytes[0];
+		servoBytes[6] = servo3Bytes[1];
+
+		SerialToArduino.ServoBytes = servoBytes;
+	}
+
+	//===========================
+
 }
 
 
