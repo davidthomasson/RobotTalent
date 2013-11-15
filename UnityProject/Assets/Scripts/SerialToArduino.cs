@@ -46,7 +46,7 @@ public class SerialToArduino : MonoBehaviour {
 					sp.Write(ServoBytes, 0, 7);
 
 //					Debug.Log("--");
-//					foreach(byte b in objectPosXByte)
+//					foreach(byte b in ServoBytes)
 //						Debug.Log(b.ToString());
 				}
 				catch(Exception e){
