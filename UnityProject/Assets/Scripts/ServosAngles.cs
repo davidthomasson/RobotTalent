@@ -3,6 +3,7 @@ using System.Collections;
 using System.IO;
 using System.Collections.Generic;
 using System;
+using UnityEditor;
 
 public class ServosAngles : MonoBehaviour {
 	
@@ -17,7 +18,7 @@ public class ServosAngles : MonoBehaviour {
 	
 	public float scale = 1/50;
 	public float timePerLine = 0.5f;
-	
+
 	public Transform screen;
 	
 	public Transform alphaTransform;
@@ -42,6 +43,9 @@ public class ServosAngles : MonoBehaviour {
 	Servo servo2 = new Servo(Mathf.PI/2, 1200, 1460, -45 * Mathf.Deg2Rad, 45 * Mathf.Deg2Rad);
 	Servo servo3 = new Servo(Mathf.PI/2, 1200, 1500, -45 * Mathf.Deg2Rad, 45 * Mathf.Deg2Rad);
 
+	//string filePath = "/Data/image_data.txt";
+	string filePath = "/Data/lineCoords.txt";
+
 	//===========================
 	
 	// Line structure used to guide the robot
@@ -62,7 +66,6 @@ public class ServosAngles : MonoBehaviour {
 		theta1Transform.localScale = new Vector3 (1, 1, 1);
 		theta2Transform.localScale = new Vector3 (1, 1, 1);
 		stylusTransform.localScale = new Vector3 (1, 1, 1);
-
 	}
 	
 	//===========================
@@ -173,7 +176,7 @@ public class ServosAngles : MonoBehaviour {
 		sliderScreenZ = GUILayout.HorizontalSlider (sliderScreenZ, 0.0F, screenSize.z);
 		screenXYZ = new Vector3(sliderScreenX, sliderScreenY, sliderScreenZ);
 		if (GUILayout.Button("Get image data")){
-			List<Line> image_lines = ReadTxtFile(Application.dataPath + "/Data/image_data.txt");
+			List<Line> image_lines = ReadTxtFile(Application.dataPath + filePath);
 			StartCoroutine( Draw(image_lines) );
 		}
 		GUILayout.Label(screenXYZ.ToString() + " > screenXYZ");
@@ -198,14 +201,14 @@ public class ServosAngles : MonoBehaviour {
 		StreamReader sr = new StreamReader(filePathAndName);
 		string fileContents = sr.ReadToEnd();
 		sr.Close();
-		
+
 		string[]   image_lines_str = fileContents.Split("\n"[0]);
 		List<Line> image_lines = new List<Line>();
 		
 		foreach( string image_line_str in image_lines_str ) {
 			string[] n = image_line_str.Split(" "[0]);
 			Line image_line;
-			
+
 			image_line.start = new Vector3( Convert.ToSingle(n[0]),
 											Convert.ToSingle(n[1]),
 											Convert.ToSingle(n[2]));
@@ -228,7 +231,7 @@ public class ServosAngles : MonoBehaviour {
 	//===========================
 	
 	IEnumerator Draw(List<Line> image_lines) {
-		
+
 		Vector3 previousPoint = image_lines[0].start;
 		
 		foreach( Line line in image_lines ){
@@ -249,10 +252,11 @@ public class ServosAngles : MonoBehaviour {
 			}
 						
 			yield return StartCoroutine( MoveArmTo(line.start, line.end, timePerLine) );
-			previousPoint = line.end;			
+			previousPoint = line.end;
+			Debug.DrawLine(-line.start, -line.end, Color.red, 2000, false);
 		}
 	}
-	
+
 	IEnumerator MoveArmTo(Vector3 start, Vector3 end, float time){
 		float i = 0.0f;
 		float rate = 1.0f/time;
