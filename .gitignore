@@ -218,7 +218,6 @@ pip-log.txt
 #################
 ## Unity
 #################
-Library
 Temp
 *.csproj
 *.pidb
