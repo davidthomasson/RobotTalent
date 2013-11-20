@@ -272,15 +272,28 @@ public class ServosAngles : MonoBehaviour {
 				yield return StartCoroutine( MoveArmTo(armUp1, line.start, speed) );
 			}else{
 				yield return StartCoroutine( MoveArmTo(previousPoint, line.start, speed) );
-				Debug.DrawLine(previousPoint * scale, line.start * scale, Color.red, 200, false);
+				DebugDrawLines(previousPoint, line.start);
 			}
 			
 			yield return StartCoroutine( MoveArmTo(line.start, line.end, speed) );
 			previousPoint = line.end;
-			Debug.DrawLine(line.start * scale, line.end * scale, Color.red, 200, false);
+			DebugDrawLines(line.start, line.end);
 		}
 
 		Debug.Log("Done!");
+	}
+
+	void DebugDrawLines(Vector3 start, Vector2 end){
+
+		Vector3 vStart = ConvertScreenToArmXYZ(start * scale) - screenCentre;
+		Vector3 vEnd   = ConvertScreenToArmXYZ(end   * scale) - screenCentre;
+
+		Vector3 offset = new Vector3(screenCentre.x, screenCentre.y, -screenCentre.z);
+
+		vStart = new Vector3(vStart.x, vStart.y, -vStart.z) + offset * scale;
+		vEnd   = new Vector3(vEnd.x,   vEnd.y,   -vEnd.z  ) + offset * scale;
+
+		Debug.DrawLine( vStart, vEnd, Color.green, 200, false);
 	}
 
 	bool FindNextLine(ref List<Line> image_lines, Vector3 previousPoint, ref Line nextLine){
