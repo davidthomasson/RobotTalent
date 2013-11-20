@@ -260,7 +260,7 @@ public class ServosAngles : MonoBehaviour {
 			float disMax = 10.0f;
 			float armUpHeight = 10.0f;
 			
-			//Debug.Log(disToNextLine);
+			Debug.Log(disToNextLine);
 			
 			if( disToNextLine > disMax ){
 				Vector3 armUp0 = new Vector3(previousPoint.x, previousPoint.y, previousPoint.z + armUpHeight);
@@ -272,6 +272,7 @@ public class ServosAngles : MonoBehaviour {
 				yield return StartCoroutine( MoveArmTo(armUp1, line.start, speed) );
 			}else{
 				yield return StartCoroutine( MoveArmTo(previousPoint, line.start, speed) );
+				Debug.DrawLine(previousPoint * scale, line.start * scale, Color.red, 200, false);
 			}
 			
 			yield return StartCoroutine( MoveArmTo(line.start, line.end, speed) );
@@ -323,7 +324,7 @@ public class ServosAngles : MonoBehaviour {
 		float i = 0.0f;
 		float dis = Vector3.Distance(start, end);
 
-		float rate = pSpeed / dis;
+		float rate = Mathf.Clamp(pSpeed,1f,1000000f) / dis;
 		
 		while( i < 1.0f ){
 			i += Time.deltaTime * rate;
