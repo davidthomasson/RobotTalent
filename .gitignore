@@ -218,9 +218,6 @@ pip-log.txt
 #################
 ## Unity
 #################
-UnityProject/Library/FailedAssetImports.txt
-UnityProject/Library/cache/
-UnityProject/Library/previews/
-UnityProject/Library/ScriptAssemblies
-UnityProject/obj
-UnityProject/Temp
+UnityProject/*
+!UnityProject/Assets
+!UnityProject/ProjectSettings
