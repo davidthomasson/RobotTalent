@@ -266,7 +266,7 @@ public class ServosAngles : MonoBehaviour {
 				Vector3 armUp0 = new Vector3(previousPoint.x, previousPoint.y, previousPoint.z + armUpHeight);
 				Vector3 armUp1 = new Vector3(line.start.x, line.start.y, line.start.z + armUpHeight);
 				
-				Debug.Log("Stylus up!");
+				//Debug.Log("Stylus up!");
 				yield return StartCoroutine( MoveArmTo(previousPoint, armUp0, speed) );
 				yield return StartCoroutine( MoveArmTo(armUp0, armUp1, speed) );
 				yield return StartCoroutine( MoveArmTo(armUp1, line.start, speed) );
