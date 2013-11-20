@@ -224,9 +224,9 @@ pip-log.txt
 *.pidb
 *.unityproj
 .DS_Store
-UnityProject/Library/FailedAssetImports.txt
-UnityProject/Library/cache/
-UnityProject/Library/previews/
-UnityProject/Library/ScriptAssemblies
-UnityProject/obj
+#UnityProject/Library/FailedAssetImports.txt
+#UnityProject/Library/cache/
+#UnityProject/Library/previews/
+#UnityProject/Library/ScriptAssemblies
+#UnityProject/obj
 UnityProject/Temp
