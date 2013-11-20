@@ -260,7 +260,7 @@ public class ServosAngles : MonoBehaviour {
 			float disMax = 10.0f;
 			float armUpHeight = 10.0f;
 			
-			Debug.Log(disToNextLine);
+			//Debug.Log(disToNextLine);
 			
 			if( disToNextLine > disMax ){
 				Vector3 armUp0 = new Vector3(previousPoint.x, previousPoint.y, previousPoint.z + armUpHeight);
