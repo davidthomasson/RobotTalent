@@ -205,8 +205,8 @@ public class ServosAngles : MonoBehaviour {
 
 		string[]   image_lines_str = fileContents.Split("\n"[0]);
 		List<Line> image_lines = new List<Line>();
-		Vector3 correction = new Vector3(-1f/10f*screenSize.x/10, -1f/20*screenSize.y/10, 1f) * 10f;
-		Vector3 offset = new Vector3( screenSize.x, screenSize.y, 0) /2;
+		Vector3 correction = new Vector3(1f/10f*screenSize.x/10, -1f/20*screenSize.y/10, 1f) * 10f;
+		Vector3 offset = new Vector3( -screenSize.x, screenSize.y, 0) /2;
 		
 		foreach( string image_line_str in image_lines_str ) {
 			string[] n = image_line_str.Split(" "[0]);
