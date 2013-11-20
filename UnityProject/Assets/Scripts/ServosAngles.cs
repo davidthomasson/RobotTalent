@@ -17,7 +17,7 @@ public class ServosAngles : MonoBehaviour {
 	public Vector3 debug;
 	
 	public float scale = 1/50;
-	public float timePerLine = 0.5f;
+	public float speed = 10000f; // 10cm/second
 
 	public Transform screen;
 	
@@ -50,9 +50,10 @@ public class ServosAngles : MonoBehaviour {
 	
 	// Line structure used to guide the robot
 	// Each line parsed from a TXT file is composed of a start point and an end point
-	public struct Line{
+	public class Line{
 		public Vector3 start;
 		public Vector3 end;
+		public bool isDrawn;
 	}
 	
 	//===========================
@@ -204,26 +205,28 @@ public class ServosAngles : MonoBehaviour {
 
 		string[]   image_lines_str = fileContents.Split("\n"[0]);
 		List<Line> image_lines = new List<Line>();
+		Vector3 correction = new Vector3(-1f/10f*screenSize.x/10, -1f/20*screenSize.y/10, 1f) * 10f;
+		Vector3 offset = new Vector3( screenSize.x, screenSize.y, 0) /2;
 		
 		foreach( string image_line_str in image_lines_str ) {
 			string[] n = image_line_str.Split(" "[0]);
-			Line image_line;
+			Line image_line = new Line();
 
 			image_line.start = new Vector3( Convert.ToSingle(n[0]),
 											Convert.ToSingle(n[1]),
-											Convert.ToSingle(n[2]));
-			
+			                                Convert.ToSingle(n[2]) );
+
 			image_line.end   = new Vector3( Convert.ToSingle(n[3]),
 											Convert.ToSingle(n[4]),
-											Convert.ToSingle(n[5]));
-			
+			                                Convert.ToSingle(n[5]) );
+
+			image_line.start = Vector3.Scale(image_line.start, correction) + offset;
+			image_line.end   = Vector3.Scale(image_line.end,   correction) + offset;
+
+			image_line.isDrawn = false;
+
 			image_lines.Add(image_line);
 		}
-		
-//		foreach( Line image_line in image_lines ){
-//			Debug.Log(image_line.start);
-//			Debug.Log(image_line.end);
-//		}
 		
 		return image_lines;
 	}
@@ -231,11 +234,28 @@ public class ServosAngles : MonoBehaviour {
 	//===========================
 	
 	IEnumerator Draw(List<Line> image_lines) {
-
-		Vector3 previousPoint = image_lines[0].start;
 		
-		foreach( Line line in image_lines ){
-			
+		Vector3 previousPoint = image_lines[0].start;
+		int lineCount = image_lines.Count;
+		bool lineFound = true;
+		int debugWhile = -1;
+
+		//for( int i=0; i<lineCount; i++ ){
+		while(debugWhile < 10000000 && lineFound){
+
+			debugWhile++;
+			Line line = new Line();
+
+			if(debugWhile>0){
+				lineFound = FindNextLine(ref image_lines, previousPoint, ref line);
+			}else{
+				line = image_lines[0];
+				lineFound = true;
+			}
+
+//			if(!lineFound)
+//				break;
+
 			float disToNextLine = (line.start - previousPoint).magnitude;
 			float disMax = 1.0f;
 			float armUpHeight = 10.0f;
@@ -246,20 +266,62 @@ public class ServosAngles : MonoBehaviour {
 				Vector3 armUp0 = new Vector3(previousPoint.x, previousPoint.y, previousPoint.z + armUpHeight);
 				Vector3 armUp1 = new Vector3(line.start.x, line.start.y, line.start.z + armUpHeight);
 				
-				yield return StartCoroutine( MoveArmTo(previousPoint, armUp0, timePerLine) );
-				yield return StartCoroutine( MoveArmTo(armUp0, armUp1, timePerLine) );
-				yield return StartCoroutine( MoveArmTo(armUp1, line.start, timePerLine) );
+				Debug.Log("Stylus up!");
+				yield return StartCoroutine( MoveArmTo(previousPoint, armUp0, speed) );
+				yield return StartCoroutine( MoveArmTo(armUp0, armUp1, speed) );
+				yield return StartCoroutine( MoveArmTo(armUp1, line.start, speed) );
 			}
-						
-			yield return StartCoroutine( MoveArmTo(line.start, line.end, timePerLine) );
+			
+			yield return StartCoroutine( MoveArmTo(line.start, line.end, speed) );
 			previousPoint = line.end;
-			Debug.DrawLine(-line.start, -line.end, Color.red, 2000, false);
+			Debug.DrawLine(line.start * scale, line.end * scale, Color.red, 200, false);
 		}
+
+		Debug.Log("Done!");
 	}
 
-	IEnumerator MoveArmTo(Vector3 start, Vector3 end, float time){
+	bool FindNextLine(ref List<Line> image_lines, Vector3 previousPoint, ref Line nextLine){
+		float disMini = 2828282828;
+		bool lineFound = false;
+		int lineFoundIndex = 0;
+		int i = -1;
+		//Debug.Log(image_lines.Count);
+
+		foreach( Line line in image_lines ){
+			i++;
+
+			if(line.isDrawn)
+				continue;
+
+			if( disMini == 2828282828 ){
+				nextLine = line;
+				lineFoundIndex = i;
+				disMini = Vector3.Distance( previousPoint, line.start );
+				lineFound = true;
+				continue;
+			}
+
+			float dis = Vector3.Distance( previousPoint, line.start );
+
+			if( dis < disMini ){
+				nextLine = line;
+				lineFoundIndex = i;
+				disMini = dis;
+				lineFound = true;
+			}
+		}
+
+		if(lineFound)
+			image_lines[lineFoundIndex].isDrawn = true;
+
+		return lineFound;
+	}
+
+	IEnumerator MoveArmTo(Vector3 start, Vector3 end, float pSpeed){
 		float i = 0.0f;
-		float rate = 1.0f/time;
+		float dis = Vector3.Distance(start, end);
+
+		float rate = pSpeed / dis;
 		
 		while( i < 1.0f ){
 			i += Time.deltaTime * rate;

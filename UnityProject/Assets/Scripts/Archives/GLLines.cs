@@ -32,13 +32,13 @@ public class GLLines : MonoBehaviour {
 		mat.SetPass(0);
 		GL.LoadOrtho();
 		GL.Begin(GL.LINES);
-		//GL.Color(Color.red);
+		GL.Color(Color.red);
 
-//		foreach( Line line in image_lines ){
-//			GL.Vertex(line.start);
-//			GL.Vertex(line.end);
-//			//Debug.Log(line.start);
-//		}
+		foreach( Line line in image_lines ){
+			GL.Vertex(line.start);
+			GL.Vertex(line.end);
+			//Debug.Log(line.start);
+		}
 
 		GL.End();
 		GL.PopMatrix();
