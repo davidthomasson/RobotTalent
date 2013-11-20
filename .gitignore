@@ -218,10 +218,15 @@ pip-log.txt
 #################
 ## Unity
 #################
-Library
-Temp
+*.sln
+*.userprefs
 *.csproj
 *.pidb
 *.unityproj
-*.sln
-*.userprefs
+.DS_Store
+UnityProject/Library/FailedAssetImports.txt
+UnityProject/Library/cache/
+UnityProject/Library/previews/
+UnityProject/Library/ScriptAssemblies
+UnityProject/obj
+UnityProject/Temp
