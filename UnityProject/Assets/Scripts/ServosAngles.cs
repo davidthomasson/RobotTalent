@@ -205,8 +205,8 @@ public class ServosAngles : MonoBehaviour {
 
 		string[]   image_lines_str = fileContents.Split("\n"[0]);
 		List<Line> image_lines = new List<Line>();
-		Vector3 correction = new Vector3(-1f/10f*screenSize.x/10, -1f/20*screenSize.y/10, 1f) * 10f;
-		Vector3 offset = new Vector3( screenSize.x, screenSize.y, 0) /2;
+		Vector3 correction = new Vector3(1f/10f*screenSize.x/10, -1f/20*screenSize.y/10, 1f) * 10f;
+		Vector3 offset = new Vector3( -screenSize.x, screenSize.y, 0) /2;
 		
 		foreach( string image_line_str in image_lines_str ) {
 			string[] n = image_line_str.Split(" "[0]);
@@ -266,21 +266,34 @@ public class ServosAngles : MonoBehaviour {
 				Vector3 armUp0 = new Vector3(previousPoint.x, previousPoint.y, previousPoint.z + armUpHeight);
 				Vector3 armUp1 = new Vector3(line.start.x, line.start.y, line.start.z + armUpHeight);
 				
-				Debug.Log("Stylus up!");
+				//Debug.Log("Stylus up!");
 				yield return StartCoroutine( MoveArmTo(previousPoint, armUp0, speed) );
 				yield return StartCoroutine( MoveArmTo(armUp0, armUp1, speed) );
 				yield return StartCoroutine( MoveArmTo(armUp1, line.start, speed) );
 			}else{
 				yield return StartCoroutine( MoveArmTo(previousPoint, line.start, speed) );
-				Debug.DrawLine(previousPoint * scale, line.start * scale, Color.red, 200, false);
+				DebugDrawLines(previousPoint, line.start);
 			}
 			
 			yield return StartCoroutine( MoveArmTo(line.start, line.end, speed) );
 			previousPoint = line.end;
-			Debug.DrawLine(line.start * scale, line.end * scale, Color.red, 200, false);
+			DebugDrawLines(line.start, line.end);
 		}
 
 		Debug.Log("Done!");
+	}
+
+	void DebugDrawLines(Vector3 start, Vector2 end){
+
+		Vector3 vStart = ConvertScreenToArmXYZ(start * scale) - screenCentre;
+		Vector3 vEnd   = ConvertScreenToArmXYZ(end   * scale) - screenCentre;
+
+		Vector3 offset = new Vector3(screenCentre.x, screenCentre.y, -screenCentre.z);
+
+		vStart = new Vector3(vStart.x, vStart.y, -vStart.z) + offset * scale;
+		vEnd   = new Vector3(vEnd.x,   vEnd.y,   -vEnd.z  ) + offset * scale;
+
+		Debug.DrawLine( vStart, vEnd, Color.green, 200, false);
 	}
 
 	bool FindNextLine(ref List<Line> image_lines, Vector3 previousPoint, ref Line nextLine){
