@@ -19,6 +19,14 @@ class Path {
       squarePoints();
     } else if (type == "face") {
       facePoints();
+    } else if (type == "grid") {
+      gridPoints(); 
+    } else if (type == "save") {
+      savePoints(); 
+    } else if (type == "file") {
+      filePoints2(); 
+    } else if (type == "ink") {
+      inkPoints(); 
     }
     
   }
@@ -40,7 +48,7 @@ class Path {
   void start() {
     segment = 0;
     running = true;
-    move.to(screenX, screenY, 20, 100);
+    //move.to(screenX, screenY, 20, 100);
   }
 
   void update() {
@@ -51,7 +59,7 @@ class Path {
     } else {
       if (segment < locations.size()) {
         PVector nextLocation = locations.get(segment);
-        move.to(nextLocation.x, nextLocation.y, nextLocation.z, 100);
+        move.to(nextLocation, 100);
         segment++;
       } else {
         running = false; 
@@ -75,7 +83,8 @@ class Path {
     
     
   }
-  
+
+//===========================================================================================================================  
   void squarePoints() {
     coords.add(new PVector(50, 50, 20));
     coords.add(new PVector(50, 50, 0));
@@ -88,6 +97,7 @@ class Path {
     convertCoords(coords);  
   }
   
+//===========================================================================================================================
   void facePoints() {
     int faceCenterX = 384;
     int faceCenterY = 512;
@@ -139,7 +149,170 @@ class Path {
       coords.add(new PVector(pointX, pointY, 0));
       if (i == endSegment+1) coords.add(new PVector(pointX, pointY, 20));
     }
+  }
+
+//===========================================================================================================================
+  void gridPoints() {
+    int columns = 7;
+    int rows = 7;
+    int borderX = 40;
+    int borderY = 100;
+    int intervalX = (screenXpixels - (borderX * 2)) / columns;
+    int intervalY = (screenYpixels - (borderY * 2)) / rows;
+    int endX = borderX + (intervalX * columns);
+    int endY = borderY + (intervalY * columns);
+   
+    int y = borderY;
+    for (int x = borderX; x <= endX; x += intervalX) {
+      coords.add(new PVector(x, y, 10));
+      coords.add(new PVector(x, y, 0));
+      if (y == borderY) { 
+        y = endY;
+      } else {
+        y = borderY;
+      }
+      coords.add(new PVector(x, y, 0));
+      coords.add(new PVector(x, y, 10));
+    }
+
+    int x = endX;
+    for (y = borderY; y <= endY; y += intervalY) {
+      coords.add(new PVector(x, y, 10));
+      coords.add(new PVector(x, y, 0));
+      if (x == borderX) { 
+        x = endX;
+      } else {
+        x = borderX;
+      }
+      coords.add(new PVector(x, y, 0));
+      coords.add(new PVector(x, y, 10));
+    }
     
+//    for (int i = 0; i < coords.size(); i++) {
+//      println(coords.get(i).x + "  " + coords.get(i).y + "  " + coords.get(i).z);
+//    }
+    
+    convertCoords(coords);  
   }  
 
+//===========================================================================================================================
+  void savePoints() {
+    PVector galleryButton = new PVector(20, 50);
+    PVector saveButton = new PVector(360, 530);
+    PVector wasteTime = new PVector(450, 210);
+    PVector galleryItem = new PVector(80, 210);
+    PVector shareButton = new PVector(465, 985);
+    PVector printButton = new PVector(465, 935);
+    PVector orientationOption = new PVector(395, 665);
+    PVector selectPrinter = new PVector(540, 775);
+    PVector finalPrintButton = new PVector(465, 930);
+    
+    tap(galleryButton, 0, -25);                                // tap top-left button
+    tap(saveButton, 0, 10);                                    // tap confirm button
+    //coords.add(new PVector(wasteTime.x, wasteTime.y, 10));     // wait for gallery
+    pause(saveButton, 600);
+    tap(galleryItem, 0, 10);                                   // tap on image (top-left item)
+    tap(shareButton, 0, 20);                                   // tap on Share button at bottom edge
+    pause(shareButton, 200);
+    tap(printButton, 0, 20);                                   // tap on Print
+    tap(orientationOption, 0, 20);                             // choose image orientation (top-left)
+    pause(orientationOption, 400);
+//    tap(selectPrinter, 20, 0);                                 // select printer (if necessary)
+    tap(finalPrintButton, 10, 0);                              // tap on Print button    
+    
+    convertCoords(coords);  
+  }
+  
+  void tap(PVector spot, int dragX, int dragY) {
+    coords.add(new PVector(spot.x, spot.y, 10));
+    coords.add(new PVector(spot.x, spot.y, 0));
+    //coords.add(new PVector(spot.x, spot.y, 0));
+    coords.add(new PVector(spot.x + dragX, spot.y + dragY, 0));
+    coords.add(new PVector(spot.x, spot.y, 10));
+  }
+  
+  void pause(PVector spot, int time) {
+    for (int i=0; i<=time; i+=200) {
+      coords.add(new PVector(spot.x, spot.y, 10));
+    } 
+  }
+  
+//===========================================================================================================================
+  void filePoints() {
+    String[] lines;
+    int index = 0;
+    PVector point = new PVector(0, 0);
+    PVector prevPoint = new PVector(0, 0);
+    
+    lines = loadStrings("file:///C:/Users/thomasd/Documents/Processing/InverseKinematics_3DOF/Boby.txt");
+    
+    while (index < lines.length) {
+      String[] pieces = split(lines[index], " ");
+      if (pieces.length == 2) {
+        point.x = int(pieces[0])-1200;
+        point.y = int(pieces[1])+100;
+        
+        // lift the pen if there's a gap
+        if (PVector.dist(point, prevPoint) > 40) {
+          println(pieces[0] + "  " + pieces[1]);
+          coords.add(new PVector(prevPoint.x, prevPoint.y, 10));
+          coords.add(new PVector(point.x, point.y, 10));
+        }
+        
+        coords.add(new PVector(point.x, point.y, 0));
+        prevPoint = point.get();
+      }
+      index = index + 1;
+    }
+    
+    convertCoords(coords);
+  }
+
+//===========================================================================================================================
+  void filePoints2() {
+    String[] lines;
+    PVector point = new PVector(0, 0, 0);
+    
+    lines = loadStrings("file:///C:/Users/thomasd/Documents/Processing/InverseKinematics_3DOF/points.txt");
+    
+    for (int i=0; i < lines.length; i++) {
+      String[] pieces = split(lines[i], ",");
+      if (pieces.length == 3) {
+        coords.add(new PVector(int(pieces[0]), int(pieces[1]), int(pieces[2])));
+      }
+    }
+    
+    convertCoords(coords);
+  }
+
+//===========================================================================================================================
+  void inkPoints() {
+    PVector brushButton = new PVector(390, 50);
+    PVector colorWheel = new PVector(360, 530);
+    PVector wasteTime = new PVector(450, 210);
+    PVector galleryItem = new PVector(80, 210);
+    PVector shareButton = new PVector(465, 985);
+    PVector printButton = new PVector(465, 935);
+    PVector orientationOption = new PVector(395, 665);
+    PVector selectPrinter = new PVector(540, 775);
+    PVector finalPrintButton = new PVector(465, 930);
+ println("yep");   
+   tap(brushButton, 0, -25);                                // tap top-left button
+//    tap(saveButton, 0, 10);                                    // tap confirm button
+//    //coords.add(new PVector(wasteTime.x, wasteTime.y, 10));     // wait for gallery
+//    pause(saveButton, 600);
+//    tap(galleryItem, 0, 10);                                   // tap on image (top-left item)
+//    tap(shareButton, 0, 20);                                   // tap on Share button at bottom edge
+//    pause(shareButton, 200);
+//    tap(printButton, 0, 20);                                   // tap on Print
+//    tap(orientationOption, 0, 20);                             // choose image orientation (top-left)
+//    pause(orientationOption, 400);
+////    tap(selectPrinter, 20, 0);                                 // select printer (if necessary)
+//    tap(finalPrintButton, 10, 0);                              // tap on Print button    
+    
+    convertCoords(coords);  
+  }
+  
 }
+
+

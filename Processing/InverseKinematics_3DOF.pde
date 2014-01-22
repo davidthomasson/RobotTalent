@@ -1,4 +1,4 @@
-boolean connected = true;    // set to false when Arduino isn't connected
+boolean connected = false;    // set to false when Arduino isn't connected
 
 import processing.serial.*;
 Serial arduino;
@@ -27,11 +27,19 @@ int screenXpixels = 768;
 int screenYpixels = 1024;
 float screenXsize = 149;
 float screenYsize = 198;
-float screenTilt = 0.18;  // radians from vertical
 
-float screenCentreX = 30.0;  // mm from shoulder joint to middle of screen
-float screenCentreY = -29.7;
-float screenCentreZ = -211.0;
+//v7 arm
+PVector screenCentre = new PVector(68, -27, -188);   // mm from shoulder joint to middle of screen
+float screenTilt = 0.04f;  // radians from vertical
+
+// at home
+//PVector screenCentre = new PVector(37, -45, -190.8);   // mm from shoulder joint to middle of screen
+//float screenTilt = 0.11f;  // radians from vertical
+
+/* for milestone 3 demo
+PVector screenCentre = new PVector(27, 0, -190.8);   // mm from shoulder joint to middle of screen
+float screenTilt = 0.03f;  // radians from vertical
+*/
 
 float originX;
 float originY;
@@ -40,15 +48,11 @@ float originZ;
 float originAxisSize = 200;
 float originPlaneSize = 250;
 
-float armX;
-float armY;
-float armZ;
-float screenX;
-float screenY;
-float screenZ;
+PVector arm = new PVector(0, 0, 0);
+PVector screen = new PVector(0, 0, 0);
 
-float upperArmLength = 114;
-float lowerArmLength = 132;
+float upperArmLength = 108.5;
+float lowerArmLength = 137.5;  // 141 for Adonit, 134 for other stylus
 
  float alpha;
  float A; 
@@ -59,9 +63,15 @@ float lowerArmLength = 132;
  float theta1;
  float theta2;
 
- Servo servo1 = new Servo(PI/2, 1200, 1500, radians(-45), radians(45));
- Servo servo2 = new Servo(PI/2, 1200, 1460, radians(-45), radians(45));
- Servo servo3 = new Servo(PI/2, 1200, 1500, radians(-45), radians(45));
+ // arm v6
+// Servo servo1 = new Servo(PI/2, 1962, 1038, 1500, radians(-35), radians(45));  // these limits should be set in Arduino too
+// Servo servo2 = new Servo(PI/2, 1004, 1975, 1481, radians(-45), radians(45));
+// Servo servo3 = new Servo(PI/2, 1061, 2023, 1534, radians(-45), radians(45));
+ 
+ // arm v5
+ Servo servo1 = new Servo(PI/2, 900, 2100, 1500, radians(-35), radians(45));  // these limits should be set in Arduino too
+ Servo servo2 = new Servo(PI/2, 2050, 850, 1450, radians(-45), radians(45));
+ Servo servo3 = new Servo(PI/2, 2100, 900, 1500, radians(-45), radians(45));
  
  int sketchTime1 = 4000;
  int sketchTime2 = 2000;
@@ -78,6 +88,10 @@ float lowerArmLength = 132;
  Goto move = new Goto();
  Path square = new Path("square");
  Path face = new Path("face");
+ Path grid = new Path("grid");
+ Path save = new Path("save");
+ Path file = new Path("file");
+ Path ink = new Path("ink");
  
  float deltaX = 2.0;
  float deltaY = 2.0;
@@ -101,6 +115,8 @@ float lowerArmLength = 132;
     addUI();
     
     leap = new LeapMotion(this);
+    
+    //String[] lines = loadStrings("woman2.txt");
  }
 
 //===========================================================================================================================  
@@ -108,9 +124,6 @@ float lowerArmLength = 132;
   background(0);
   
   if (!servoMode) {           // get x, y, z coordinates
-//    if (sketching) {             // if in drawing mode               
-//      sketch();                    // get coords from drawing
-//    }                            // if not sketching, get coords from x, y, z sliders
     
     if(move.running) {
       move.update();
@@ -118,6 +131,12 @@ float lowerArmLength = 132;
       square.update();
     } else if(face.running) {
       face.update();
+    } else if(grid.running) {
+      grid.update();
+    } else if (save.running) {
+      save.update();
+    } else if (file.running) {
+      file.update();
     } else if (leapInput) {
       readLeap();
     }else if (arrowsMove) {
@@ -139,8 +158,7 @@ float lowerArmLength = 132;
   if (connected) sendData();
 
   drawModel();
-  //printDebug();
-  
+  printDebug();
 
  }
 
@@ -149,15 +167,21 @@ void calculateXYZ() {
   // calculate the robot arm x,y,z coords from the iPad x,y,z coords (allowing for tilt)
   // refer to arm-screen_coords_transform.jpg 
   
-  armX = screenX + screenCentreX;
-  armY = ((screenY - (screenZ / tan(screenTilt))) * cos(screenTilt)) + (screenZ / tan(screenTilt)) + screenCentreY;
-  armZ = screenCentreZ - ((screenY - (screenZ / tan(screenTilt))) * sin(screenTilt));
+  arm.x = screen.x + screenCentre.x;
+  arm.y = ((screen.y - (screen.z / tan(screenTilt))) * cos(screenTilt)) + (screen.z / tan(screenTilt)) + screenCentre.y;
+  arm.z = screenCentre.z - ((screen.y - (screen.z / tan(screenTilt))) * sin(screenTilt));
   
-  sliderArmX.setValue(armX);
-  sliderArmY.setValue(armY);
-  sliderArmZ.setValue(armZ);
+  // lift the stylus a little in the centre of the screen to take into account the roundness of the tip
+  float hotspotX = 0;
+  float hotspotY = 10;
+  float distFromScreenCentre = sqrt(sq(screen.x - hotspotX) + sq(screen.y - hotspotY));
+  float adjustZ = max(map(distFromScreenCentre, 0, screenXsize/2, 0.5, 0), 0);
+  //arm.z += adjustZ;
   
-  //println(armX + "  " + armY + "  " + armZ);
+  sliderArmX.setValue(arm.x);
+  sliderArmY.setValue(arm.y);
+  sliderArmZ.setValue(arm.z);
+
 }
 
 //===========================================================================================================================
@@ -175,25 +199,36 @@ void calculateJointAngles() {
       
     Shoulder Joint Extension (theta1)
     when looking at the shoulder from the top
-    - positive clockwise
+    - negative clockwise
     - zero degrees is pointing directly at the screen
     
     Elbow Joint Extension (theta2)
     when looking at the elbow from the top
-    - positive clockwise
-    - 180 degrees is lower arm in line with upper arm
+    - negative couter-clockwise
+    - 0 degrees is lower arm in line with upper arm
     
   */
-  A = sqrt(sq(armY) + sq(armZ)); 
-  B = constrain(sqrt(sq(A) + sq(armX)), 0, upperArmLength + lowerArmLength) ;
-  q1 = atan2(-armX, -A);
+  A = sqrt(sq(arm.y) + sq(arm.z)); 
+  B = constrain(sqrt(sq(A) + sq(arm.x)), 0, upperArmLength + lowerArmLength) ;
+  q1 = atan2(-arm.x, -A);
   q2 = acos((sq(upperArmLength) - sq(lowerArmLength) + sq(B))/(2*upperArmLength*B));
 
-  alpha = atan2(-armY, -armZ);
-  //theta1 = PI - (q1 + q2);
-  theta1 = -PI + (q1 + q2);
-  theta2 = -PI + acos((sq(upperArmLength) + sq(lowerArmLength) - sq(B))/(2*upperArmLength*lowerArmLength));
+  alpha = atan2(-arm.y, -arm.z);
+ 
+  theta1 = PI/2 + (q1 + q2);
+  if (theta1 > PI) {
+    theta1 = theta1 - TWO_PI;  // this is negative when servo is moving with the arm
+  } 
   
+  theta2 = -PI + acos((sq(upperArmLength) + sq(lowerArmLength) - sq(B))/(2*upperArmLength*lowerArmLength));
+
+  //theta1 = PI - (q1 + q2);
+  //theta1 = -PI + (q1 + q2);  // when servo was on arm
+//  if (theta1 < -PI) {
+//    theta1 = -(TWO_PI + theta1);  // this is negative when servo is moving with the arm
+//  } else {
+//    theta1 = -theta1;
+//  }    
 }
 
 //===========================================================================================================================
@@ -205,11 +240,6 @@ void calculateServoAngles() {
   knobServo1.setValue(alpha);
   
   // theta1 ----
-  if (theta1 < -PI) {
-    theta1 = -(TWO_PI + theta1);
-  } else {
-    theta1 = -theta1;
-  }  
   servo2.setAngle(theta1 + PI/4);      // adding 45 degrees so the servo central point is pointing at 45deg out of the joint
   knobServo2.setValue(theta1 + PI/4);
   
@@ -221,7 +251,8 @@ void calculateServoAngles() {
 //===========================================================================================================================
 void readJointAngles() {
   alpha = knobServo1.getValue();
-  theta1 = -knobServo2.getValue() + PI/4;  // servo is positioned so that servo centre points upper arm at 45deg;
+  //theta1 = -knobServo2.getValue() + PI/4;  // servo is positioned so that servo centre points upper arm at 45deg;
+  theta1 = knobServo2.getValue() - PI/4;  // servo is positioned so that servo centre points upper arm at 45deg;
   theta2 = knobServo3.getValue() - PI/4;  // servo is positioned so that servo centre points lower arm at 45deg
 
 }
@@ -253,11 +284,15 @@ void keyPressed() {
    } else if (key == 'x' || key == 'X') {
      sketchPoints.clear();
    } else if (key == 'h' || key == 'H') {
-     move.to(-60, 80, screenZ, 200);
+     move.to(new PVector(-60, 80, screen.z), 200);
    } else if (key == 'c' || key == 'C') {
-     move.to(0, 0, screenZ, 200);
+     move.to(new PVector(0, 0, screen.z), 200);
    } else if (key == 'g' || key == 'G') {
-     move.to(50, 50, screenZ, 200);
+     if (!grid.running) {
+       grid.start();
+     } else {
+       grid.running = false;
+     }
    } else if (key == 'p' || key == 'P') {
      square.start();
    } else if (key == 'f' || key == 'F') {
@@ -267,13 +302,13 @@ void keyPressed() {
        face.running = false;
      }
    } else if (key == '1') {
-     move.to(-70, 95, screenZ, 400);
+     move.to(new PVector(-70, 95, screen.z), 400);
    } else if (key == '2') {
-     move.to(70, 95, screenZ, 400);
+     move.to(new PVector(70, 95, screen.z), 400);
    } else if (key == '3') {
-     move.to(70, -95, screenZ, 400);
+     move.to(new PVector(70, -95, screen.z), 400);
    } else if (key == '4') {
-     move.to(-70, -95, screenZ, 400);
+     move.to(new PVector(-70, -95, screen.z), 400);
    } else if (key == 'l' || key == 'L') {
      leapInput = !leapInput;
    } else if (key == 'a' || key == 'A') {
@@ -284,6 +319,16 @@ void keyPressed() {
      deltaZdirection = 1;
    } else if (key == 'm' || key == 'M') {
      mouseMove = !mouseMove;
+   } else if (key == 's' || key == 'S') {   // Save button
+     save.start();
+   } else if (key == 'k' || key == 'K') {   // select black ink
+     ink.start();
+   } else if (key == 'i' || key == 'I') {
+     if (!file.running) {
+       file.start();
+     } else {
+       file.running = false;
+     }
    }
  }
   
@@ -310,54 +355,6 @@ void keyReleased() {
  }
 }
 
-//=========================================================================================================================== 
-void sketch() {
-  screenZ = 0.0;
-  int faceCenterX = 30;
-  int faceCenterY = 0;
-  
-  float sketchAngle;
-  
-  if (millis() < sketchStart + sketchTime1) {
-    sketchAngle = (millis() - sketchStart) / float(sketchTime1) * TWO_PI;
-    screenX = faceDiam * sin(sketchAngle) + faceCenterX;
-    screenY = faceDiam * cos(sketchAngle) + faceCenterY;
-    
-    PVector thispoint = new PVector(screenX, screenY, screenZ);
-    sketchPoints.add(thispoint);
-
-  } else if (millis() < sketchStart + sketchTime1 + sketchTime2) {
-    sketchAngle = (millis() - (sketchStart + sketchTime1)) / float(sketchTime2) * TWO_PI;
-    screenX = eyeDiam * sin(sketchAngle) - 20 + faceCenterX;
-    screenY = eyeDiam * cos(sketchAngle) + 20 + faceCenterY;
-    
-    PVector thispoint = new PVector(screenX, screenY, screenZ);
-    sketchPoints.add(thispoint);    
-
-  } else if (millis() < sketchStart + sketchTime1 + sketchTime2 + sketchTime3) {
-    sketchAngle = (millis() - (sketchStart + sketchTime1 + sketchTime2)) / float(sketchTime3) * TWO_PI;
-    screenX = eyeDiam * sin(sketchAngle) + 20 + faceCenterX;
-    screenY = eyeDiam * cos(sketchAngle) + 20 + faceCenterY;
-    
-    PVector thispoint = new PVector(screenX, screenY, screenZ);
-    sketchPoints.add(thispoint);      
-
-  } else if (millis() < sketchStart + sketchTime1 + sketchTime2 + sketchTime3 + sketchTime4) {
-    sketchAngle = TWO_PI/3 + (millis() - (sketchStart + sketchTime1 + sketchTime2 + sketchTime3)) / float(sketchTime4) * TWO_PI/3;
-    screenX = mouthDiam * sin(sketchAngle) + faceCenterX;
-    screenY = mouthDiam * cos(sketchAngle) + faceCenterY;
-    
-    PVector thispoint = new PVector(screenX, screenY, screenZ);
-    sketchPoints.add(thispoint);      
-    
-  } else {
-    
-    sketchStart = millis();
-    sketchPoints.clear();
-    
-  }
-  
-}
 
 //=========================================================================================================================== 
 void drawSketch() {
@@ -484,7 +481,7 @@ void drawAxes() {
    fill(23, 100, 205);
    noStroke();
    pushMatrix();
-     translate(armX, -armY, armZ);
+     translate(arm.x, -arm.y, arm.z);
      sphere(4);
    popMatrix();
   
@@ -512,7 +509,8 @@ void drawAxes() {
        endShape();
        
        //rotateY(PI - theta1);
-       rotateY(theta1);
+       //rotateY(theta1);  // when servo was on arm
+       rotateY(-theta1 - PI/2);
        beginShape(LINES);
        stroke(150);
        strokeWeight(5);
@@ -567,7 +565,7 @@ void drawScreen() {
   fill(255, 30);
   strokeWeight(1);
   pushMatrix();
-    translate(screenCentreX, -screenCentreY, screenCentreZ);
+    translate(screenCentre.x, -screenCentre.y, screenCentre.z);
     rotateX(screenTilt);
     
     beginShape(QUADS);
@@ -584,20 +582,6 @@ void drawScreen() {
 }
 
 //===========================================================================================================================
-//void drawPath() {
-//  pushMatrix();
-//  translate(0, 0, 1);
-//  for (int i = 0; i < squarePath.locations.size(); i++) {
-//      PVector nextLocation = squarePath.locations.get(i);
-//      noStroke();
-//      fill(255, 0, 0);
-//      ellipse(nextLocation.x, nextLocation.y, 5, 5);
-//  }  
-//  popMatrix();
-//  
-//}
-
-//===========================================================================================================================
 void readLeap() {
   if (leap.hasHands()) {
     hand = leap.getHands().get(0);
@@ -605,32 +589,32 @@ void readLeap() {
     float leapX = hand.getPosition().x;
     float leapY = hand.getPosition().y;
     float leapZ = hand.getPosition().z;  
-    screenX = constrain(map(leapX, 320, 475, -screenXsize/2, screenXsize/2), -screenXsize/2, screenXsize/2);
-    screenY = constrain(map(leapY, 600, 400, -screenYsize/2, screenYsize/2), -screenYsize/2, screenYsize/2);
-    screenZ = constrain(map(leapZ, 40, 30, 0, 50), 0, 50);
+    screen.x = constrain(map(leapX, 320, 475, -screenXsize/2, screenXsize/2), -screenXsize/2, screenXsize/2);
+    screen.y = constrain(map(leapY, 600, 400, -screenYsize/2, screenYsize/2), -screenYsize/2, screenYsize/2);
+    screen.z = constrain(map(leapZ, 40, 30, 0, 50), 0, 50);
     //println(leapX + "  " + leapY);
-    sliderScreenX.setValue(screenX);
-    sliderScreenY.setValue(screenY);
-    sliderScreenZ.setValue(screenZ);
+    sliderScreenX.setValue(screen.x);
+    sliderScreenY.setValue(screen.y);
+    sliderScreenZ.setValue(screen.z);
   }
 }
 
 //===========================================================================================================================
 void arrowsInput() {
-  screenX = constrain(screenX + (deltaX * deltaXdirection), -screenXsize/2, screenXsize/2);
-  screenY = constrain(screenY + (deltaY * deltaYdirection), -screenYsize/2, screenYsize/2); 
-  screenZ = constrain(screenZ + (deltaZ * deltaZdirection), 0, 50);
-  sliderScreenX.setValue(screenX);
-  sliderScreenY.setValue(screenY);
-  sliderScreenZ.setValue(screenZ);
+  screen.x = constrain(screen.x + (deltaX * deltaXdirection), -screenXsize/2, screenXsize/2);
+  screen.y = constrain(screen.y + (deltaY * deltaYdirection), -screenYsize/2, screenYsize/2); 
+  screen.z = constrain(screen.z + (deltaZ * deltaZdirection), 0, 50);
+  sliderScreenX.setValue(screen.x);
+  sliderScreenY.setValue(screen.y);
+  sliderScreenZ.setValue(screen.z);
 }
 
 //===========================================================================================================================
 void mouseInput() {
-  screenX = constrain(map(mouseX, 100, 700, -screenXsize/2, screenXsize/2), -screenXsize/2, screenXsize/2);
-  screenY = constrain(map(mouseY, 0, 800, screenYsize/2, -screenYsize/2), -screenYsize/2, screenYsize/2); 
-  sliderScreenX.setValue(screenX);
-  sliderScreenY.setValue(screenY);
+  screen.x = constrain(map(mouseX, 100, 700, -screenXsize/2, screenXsize/2), -screenXsize/2, screenXsize/2);
+  screen.y = constrain(map(mouseY, 0, 800, screenYsize/2, -screenYsize/2), -screenYsize/2, screenYsize/2); 
+  sliderScreenX.setValue(screen.x);
+  sliderScreenY.setValue(screen.y);
 }
 
 //=========================================================================================================================== 
@@ -652,7 +636,7 @@ void printDebug() {
 void addUI() {
     // arm X,Y,Z sliders ------------------------------------------------------
     cp5 = new ControlP5(this);
-    // armX slider
+    // arm.x slider
     sliderArmX = cp5.addSlider("armX")
      .setPosition(20,20)
      .setSize(200, 10)
@@ -660,7 +644,7 @@ void addUI() {
      .setValue(0.0);
      ;
     
-    // armY slider
+    // arm.y slider
     sliderArmY = cp5.addSlider("armY")
      .setPosition(20,40)
      .setSize(200, 10)
@@ -668,7 +652,7 @@ void addUI() {
      .setValue(0.0)
      ;
 
-    // armZ slider     
+    // arm.z slider     
     sliderArmZ = cp5.addSlider("armZ")
      .setPosition(20,60)
      .setSize(200, 10)
@@ -677,28 +661,28 @@ void addUI() {
      ; 
 
     // arm X,Y,Z sliders ------------------------------------------------------
-    // screenX slider
+    // screen.x slider
     sliderScreenX = cp5.addSlider("screenX")
      .setPosition(20,100)
      .setSize(200, 10)
      .setRange(-screenXsize/2,screenXsize/2)
-     .setValue(0.0);
+     .setValue(-74.0);
      ;
     
-    // screenY slider
+    // screen.y slider
     sliderScreenY = cp5.addSlider("screenY")
      .setPosition(20,120)
      .setSize(200, 10)
      .setRange(-screenYsize/2,screenYsize/2)
-     .setValue(0.0)
+     .setValue(-99.0)
      ;
 
-    // screenZ slider     
+    // screen.z slider     
     sliderScreenZ = cp5.addSlider("screenZ")
      .setPosition(20,140)
      .setSize(200, 10)
      .setRange(0.0, 50.0)
-     .setValue(15.0)
+     .setValue(40.0)
      ;   
     
     // armXYZ vs screenXYZ toggle ---------------------------------------------
@@ -734,7 +718,7 @@ void addUI() {
      ;
 
     // screen orientation sliders -----------------------------------------------
-    float initialValue = screenCentreX;  // strange behaviour where it doesn't work if I put 'screenCentreX' in .setValue
+    float initialValue = screenCentre.x;  // strange behaviour where it doesn't work if I put 'screenCentre.x' in .setValue
     cp5.addSlider("screenCentreX")
      .setPosition(width-270,100)
      .setSize(200, 10)
@@ -742,7 +726,7 @@ void addUI() {
      .setValue(initialValue)
      ;
 
-    initialValue = screenCentreY;  // strange behaviour where it doesn't work if I put 'screenCentreY' in .setValue
+    initialValue = screenCentre.y;  // strange behaviour where it doesn't work if I put 'screenCentre.y' in .setValue
     cp5.addSlider("screenCentreY")
      .setPosition(width-270,120)
      .setSize(200, 10)
@@ -750,7 +734,7 @@ void addUI() {
      .setValue(initialValue)
      ;
      
-    initialValue = screenCentreZ;  // strange behaviour where it doesn't work if I put 'screenCentreZ' in .setValue
+    initialValue = screenCentre.z;  // strange behaviour where it doesn't work if I put 'screenCentre.z' in .setValue
     cp5.addSlider("screenCentreZ")
      .setPosition(width-270,140)
      .setSize(200, 10)
@@ -807,4 +791,34 @@ void addUI() {
                .setAngleRange(servo3.angleRange)
                .setStartAngle(PI/2 + ((TWO_PI - servo3.angleRange)/2))
                ;
+}
+
+//===========================================================================================================================
+// Event Handlers for sliders
+void armX(float theValue) {
+  arm.x = theValue;
+}
+void armY(float theValue) {
+  arm.y = theValue;
+}
+void armZ(float theValue) {
+  arm.z = theValue;
+}
+void screenX(float theValue) {
+  screen.x = theValue;
+}
+void screenY(float theValue) {
+  screen.y = theValue;
+}
+void screenZ(float theValue) {
+  screen.z = theValue;
+}
+void screenCentreX(float theValue) {
+  screenCentre.x = theValue;
+}
+void screenCentreY(float theValue) {
+  screenCentre.y = theValue;
+}
+void screenCentreZ(float theValue) {
+  screenCentre.z = theValue;
 }

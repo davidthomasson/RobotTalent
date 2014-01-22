@@ -16,31 +16,39 @@ class Goto {
    running = false;
   }
   
-  void to(float x, float y, float z, float speed_) {
+  //void to(float x, float y, float z, float speed_) {
+  void to(PVector endLocation_, float speed_) {
    startTime = millis();
-   startLocation = new PVector(screenX, screenY, screenZ);
-   endLocation = new PVector(x, y, z);
+   //startLocation = new PVector(screen.z, screen.y, screen.z);
+   startLocation = screen.get();
+   //endLocation = new PVector(x, y, z);
+   endLocation = endLocation_.get();
    speed = speed_;
-   duration = PVector.dist(startLocation, endLocation) / speed * 1000;
+   
+   if(PVector.dist(startLocation, endLocation) > 0) {
+     duration = PVector.dist(startLocation, endLocation) / speed * 1000;
+   } else {
+     duration = 200;
+   }
    running = true;
   }
 
   void update() {
-    if(PVector.dist(startLocation, endLocation) > 0) {
-      screenX = lerp(startLocation.x, endLocation.x, min((millis() - startTime), duration)/duration);
-      screenY = lerp(startLocation.y, endLocation.y, min((millis() - startTime), duration)/duration);
-      screenZ = lerp(startLocation.z, endLocation.z, min((millis() - startTime), duration)/duration);
+//    if(PVector.dist(startLocation, endLocation) > 0) {
+      screen.x = lerp(startLocation.x, endLocation.x, min((millis() - startTime), duration)/duration);
+      screen.y = lerp(startLocation.y, endLocation.y, min((millis() - startTime), duration)/duration);
+      screen.z = lerp(startLocation.z, endLocation.z, min((millis() - startTime), duration)/duration);
+//    } else {
+//      PVector thisLocation = startLocation.get();
+//      screen.x = thisLocation.x;
+//      screen.y = thisLocation.y;
+//      screen.z = thisLocation.z;
+//      screen = startLocation.get();
+//    }
 
-    } else {
-      PVector thisLocation = startLocation.get();
-      screenX = thisLocation.x;
-      screenY = thisLocation.y;
-      screenZ = thisLocation.z;
-    }
-
-    sliderScreenX.setValue(screenX);
-    sliderScreenY.setValue(screenY);
-    sliderScreenZ.setValue(screenZ);
+    sliderScreenX.setValue(screen.x);
+    sliderScreenY.setValue(screen.y);
+    sliderScreenZ.setValue(screen.z);
     
 //    if (screenZ == 0) {
 //      drawPoint(); 
