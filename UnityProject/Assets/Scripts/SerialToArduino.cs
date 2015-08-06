@@ -11,19 +11,7 @@ public class SerialToArduino : MonoBehaviour {
 
 	void Start()
 	{
-		sp = new SerialPort("\\\\.\\COM" + COMNumber, 9600);
-
-		if(sp.IsOpen)
-		{
-			sp.Close();
-		}
-		else
-		{
-			sp.Open();
-			sp.ReadTimeout = 16;
-		}
-
-		StartCoroutine( SendBytesToArduino() );
+		Initialize(COMNumber);
 	}
 	
 	void Update ()
@@ -34,6 +22,23 @@ public class SerialToArduino : MonoBehaviour {
 	void OnApplicationQuit() 
 	{
 		sp.Close();
+	}
+
+	public void Initialize(int COM){
+		sp = new SerialPort("\\\\.\\COM" + COM, 57600);//9600
+		
+		if(sp.IsOpen)
+		{
+			sp.Close();
+		}
+		else
+		{
+			sp.Open();
+			sp.ReadTimeout = 16;
+		}
+
+		StopCoroutine( "SendBytesToArduino" );
+		StartCoroutine( "SendBytesToArduino" );
 	}
 
 	IEnumerator SendBytesToArduino(){
